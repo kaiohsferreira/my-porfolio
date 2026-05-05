@@ -1,10 +1,24 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 
 export function CustomCursor() {
+  const [enabled, setEnabled] = useState(false)
   const cursorRef = useRef<HTMLDivElement>(null)
   const ringRef   = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    function updateEnabled() {
+      const isFinePointer = window.matchMedia('(hover: hover) and (pointer: fine)').matches
+      setEnabled(isFinePointer && window.innerWidth > 900)
+    }
+
+    updateEnabled()
+    window.addEventListener('resize', updateEnabled)
+    return () => window.removeEventListener('resize', updateEnabled)
+  }, [])
+
+  useEffect(() => {
+    if (!enabled) return
+
     const cursor = cursorRef.current
     const ring   = ringRef.current
     if (!cursor || !ring) return
@@ -30,7 +44,9 @@ export function CustomCursor() {
       document.removeEventListener('mousemove', onMove)
       cancelAnimationFrame(rafId)
     }
-  }, [])
+  }, [enabled])
+
+  if (!enabled) return null
 
   return (
     <>

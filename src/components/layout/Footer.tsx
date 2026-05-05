@@ -5,20 +5,20 @@ export function Footer() {
 
   return (
     <footer
-      className="flex items-center justify-between px-12 py-8 border-t"
+      className="footer-wrap flex items-center justify-between px-12 py-8 border-t"
       style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
     >
-      <div className="font-mono text-[11px] tracking-[0.06em]" style={{ color: 'var(--text-dim)' }}>
+      <div className="footer-meta font-mono text-[11px] tracking-[0.06em]" style={{ color: 'var(--text-dim)' }}>
         <span>© 2026</span>
-        {' — '}
+        <span className="footer-separator"> - </span>
         <span style={{ color: 'var(--text-muted)' }}>Kaio Henrique</span>
-        {' — '}
+        <span className="footer-separator"> - </span>
         <span>{t('Feito com', 'Made with')}</span>{' '}
         <span style={{ color: 'var(--green)' }}>♥</span>
       </div>
 
       <div
-        className="flex items-center gap-2 font-mono text-[11px] tracking-[0.06em]"
+        className="footer-status flex items-center gap-2 font-mono text-[11px] tracking-[0.06em]"
         style={{ color: 'var(--text-dim)' }}
       >
         <div className="status-dot" />

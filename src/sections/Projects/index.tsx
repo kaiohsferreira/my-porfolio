@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLanguage } from '@/context/LanguageContext'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import { PROJECTS_DATA } from '@/data/portfolio'
@@ -15,14 +15,31 @@ export function Projects() {
   const trackRef = useRef<HTMLDivElement>(null)
   const total = PROJECTS_DATA.length
 
+  function updateTrackPosition(idx: number) {
+    if (trackRef.current && trackRef.current.children[0]) {
+      const cardW = (trackRef.current.children[0] as HTMLElement).getBoundingClientRect().width + 24
+      trackRef.current.style.transform = `translateX(-${idx * cardW}px)`
+    }
+  }
+
   function goTo(idx: number) {
     const clamped = Math.max(0, Math.min(idx, total - 1))
     setCurrent(clamped)
-    if (trackRef.current && trackRef.current.children[0]) {
-      const cardW = (trackRef.current.children[0] as HTMLElement).getBoundingClientRect().width + 24
-      trackRef.current.style.transform = `translateX(-${clamped * cardW}px)`
-    }
+    updateTrackPosition(clamped)
   }
+
+  useEffect(() => {
+    updateTrackPosition(current)
+  }, [current])
+
+  useEffect(() => {
+    function handleResize() {
+      updateTrackPosition(current)
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [current])
 
   return (
     <section
@@ -37,13 +54,13 @@ export function Projects() {
         <div className="overflow-hidden">
           <div
             ref={trackRef}
-            className="flex gap-6"
+            className="projects-carousel-track flex gap-6"
             style={{ transition: 'transform 0.55s cubic-bezier(0.16,1,0.3,1)', willChange: 'transform' }}
           >
             {PROJECTS_DATA.map((proj, i) => (
               <div
                 key={proj.id}
-                className="project-card-wrap flex flex-col border flex-shrink-0 cursor-default overflow-hidden transition-colors duration-200"
+                className="project-card-wrap project-carousel-card flex flex-col border flex-shrink-0 cursor-default overflow-hidden transition-colors duration-200"
                 style={{
                   flex: '0 0 calc(50% - 12px)',
                   maxWidth: 'calc(50% - 12px)',

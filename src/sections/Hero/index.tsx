@@ -32,7 +32,7 @@ export function Hero() {
   return (
     <section
       id="home"
-      className="relative min-h-screen flex flex-col justify-center overflow-hidden"
+      className="hero-section relative min-h-screen flex flex-col justify-center overflow-hidden"
       style={{ padding: '0 48px' }}
     >
       {/* Grid lines */}
@@ -51,7 +51,7 @@ export function Hero() {
       <div ref={particlesRef} className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true" />
 
       {/* Content */}
-      <div className="relative z-10 max-w-4xl">
+      <div className="hero-content relative z-10 max-w-4xl">
         {/* Tag */}
         <div
           className="hero-anim-1 inline-flex items-center gap-2 font-mono text-[12px] tracking-[0.12em] uppercase mb-8"

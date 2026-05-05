@@ -14,6 +14,8 @@ const LinkedinIcon = () => (
   </svg>
 )
 
+const CV_DOWNLOAD_URL = 'https://drive.google.com/uc?export=download&id=1CsL9FtHj2IUwEgeKoXqnbh_hilbFVNjG'
+
 export function Contact() {
   const { t } = useLanguage()
   const [form, setForm] = useState({ fname: '', lname: '', email: '', msg: '' })
@@ -92,11 +94,17 @@ export function Contact() {
 
             {/* CV download */}
             <a
-              href="#"
-              className="contact-link-item flex items-center gap-4 font-mono text-[13px] font-medium tracking-[0.08em] no-underline border p-4 mt-2 transition-all duration-200"
+              href={CV_DOWNLOAD_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="contact-link-item contact-link-cta flex items-center gap-4 font-mono text-[13px] font-medium tracking-[0.08em] no-underline border p-4 mt-2 transition-all duration-200"
               style={{ background: 'var(--green)', borderColor: 'var(--green)', color: 'var(--bg)' }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--cyan)'; e.currentTarget.style.borderColor = 'var(--cyan)'; e.currentTarget.style.boxShadow = '0 8px 32px oklch(72% 0.25 220 / 0.3)' }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--green)'; e.currentTarget.style.borderColor = 'var(--green)'; e.currentTarget.style.boxShadow = 'none' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--cyan)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'var(--green)'
+              }}
             >
               <span>⬇</span>
               <span>{t('Baixar Currículo', 'Download Resume')}</span>
@@ -158,7 +166,7 @@ export function Contact() {
               <button
                 type="submit"
                 disabled={loading}
-                className="clip-chip font-mono text-[13px] font-medium tracking-[0.08em] px-7 py-[14px] border-none transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-60"
+                className="clip-chip font-mono text-[12px] font-medium tracking-[0.08em] px-5 py-3 border-none transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-60"
                 style={{ background: 'var(--green)', color: 'var(--bg)', cursor: 'pointer' }}
                 onMouseEnter={(e) => { if (!e.currentTarget.disabled) { e.currentTarget.style.background = 'var(--cyan)' } }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--green)' }}

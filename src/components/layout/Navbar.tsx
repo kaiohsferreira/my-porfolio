@@ -119,13 +119,13 @@ export function Navbar() {
 
           {themeOpen && (
             <div
-              className="absolute top-[calc(100%+8px)] right-0 w-[480px] border border-[var(--border-bright)] z-[9500] overflow-hidden"
+              className="theme-dropdown-panel absolute top-[calc(100%+8px)] right-0 w-[480px] border border-[var(--border-bright)] z-[9500] overflow-hidden"
               style={{ background: 'var(--bg2)', boxShadow: '0 20px 60px rgba(0,0,0,0.7)' }}
             >
               {/* top accent line */}
               <div className="h-px w-full" style={{ background: 'linear-gradient(to right, var(--green), var(--cyan), transparent)' }} />
 
-              <div className="p-4">
+              <div className="theme-dropdown-content p-4">
                 {/* Header */}
                 <div
                   className="font-mono text-[10px] tracking-[0.15em] uppercase pb-3 mb-3 border-b"
@@ -135,7 +135,7 @@ export function Navbar() {
                 </div>
 
                 {/* Flat 3-col grid */}
-                <div className="grid grid-cols-3 gap-1">
+                <div className="theme-dropdown-grid grid grid-cols-3 gap-1">
                   {DROPDOWN_THEMES.map((th) => (
                     <ThemeButton
                       key={th.id}
@@ -187,7 +187,7 @@ function ThemeButton({ theme, active, onSelect }: ThemeButtonProps) {
     <button
       onClick={() => onSelect(theme)}
       title={theme.label}
-      className="flex items-center gap-2 px-3 py-2 font-mono text-[12px] border transition-all duration-150 text-left w-full"
+      className="theme-dropdown-item flex items-center gap-2 px-3 py-2 font-mono text-[12px] border transition-all duration-150 text-left w-full"
       style={{
         background:  active ? theme.greenGlow : 'none',
         borderColor: active ? theme.green     : 'transparent',
