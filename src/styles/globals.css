@@ -4,35 +4,26 @@
 
 @layer base {
   :root {
-    --bg:           #050508;
-    --bg2:          #0a0a10;
-    --bg3:          #0f0f18;
-    --surface:      #12121c;
-    --surface2:     #1a1a26;
-    --border:       rgba(255, 255, 255, 0.06);
-    --border-bright:rgba(255, 255, 255, 0.12);
-    --text:         #e8e8f0;
-    --text-muted:   #6b6b80;
-    --text-dim:     #3a3a4a;
-    --green:        oklch(72% 0.25 160);
-    --cyan:         oklch(72% 0.25 220);
-    --red-accent:   oklch(65% 0.22 25);
-    --yellow-accent:oklch(78% 0.18 90);
-    --green-glow:   oklch(72% 0.25 160 / 0.15);
-    --cyan-glow:    oklch(72% 0.25 220 / 0.15);
-    --font-display: 'Space Grotesk', sans-serif;
-    --font-mono:    'DM Mono', monospace;
+    --bg:            #050508;
+    --bg2:           #0a0a10;
+    --bg3:           #0f0f18;
+    --surface:       #12121c;
+    --surface2:      #1a1a26;
+    --border:        rgba(255,255,255,0.06);
+    --border-bright: rgba(255,255,255,0.12);
+    --text:          #e8e8f0;
+    --text-muted:    #6b6b80;
+    --text-dim:      #3a3a4a;
+    --green:         oklch(72% 0.25 160);
+    --cyan:          oklch(72% 0.25 220);
+    --green-glow:    oklch(72% 0.25 160 / 0.15);
+    --cyan-glow:     oklch(72% 0.25 220 / 0.15);
+    --font-display:  'Space Grotesk', sans-serif;
+    --font-mono:     'DM Mono', monospace;
   }
 
-  *, *::before, *::after {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-  }
-
-  html {
-    scroll-behavior: smooth;
-  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
 
   body {
     background: var(--bg);
@@ -42,7 +33,6 @@
     cursor: none;
   }
 
-  /* noise texture */
   body::before {
     content: '';
     position: fixed;
@@ -59,14 +49,306 @@
   ::-webkit-scrollbar-thumb:hover { background: var(--green); }
 }
 
-@layer utilities {
-  .clip-chip {
-    clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
-  }
-  .clip-chip-sm {
-    clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px));
-  }
-  .clip-chip-xs {
-    clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
-  }
+/* ─── CUSTOM CURSOR ─── */
+#cursor {
+  position: fixed;
+  width: 10px; height: 10px;
+  background: var(--green);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -50%);
+  mix-blend-mode: screen;
+  transition: width 0.2s, height 0.2s, background 0.2s;
+}
+#cursor-ring {
+  position: fixed;
+  width: 36px; height: 36px;
+  border: 1px solid var(--green);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9998;
+  transform: translate(-50%, -50%);
+  opacity: 0.5;
+}
+
+/* ─── NAVBAR ─── */
+nav.scrolled {
+  border-color: var(--border) !important;
+  background: rgba(5,5,8,0.85) !important;
+  backdrop-filter: blur(16px);
+}
+.nav-link-underline::after {
+  content: '';
+  position: absolute;
+  bottom: -2px; left: 0;
+  width: 0; height: 1px;
+  background: var(--green);
+  transition: width 0.2s;
+}
+.nav-link-underline:hover::after { width: 100%; }
+
+/* ─── CLIP PATHS ─── */
+.clip-chip    { clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px)); }
+.clip-chip-sm { clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px)); }
+.clip-chip-xs { clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px)); }
+
+/* ─── HERO ─── */
+.hero-grid-lines {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, var(--border) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+  background-size: 80px 80px;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 30%, transparent 100%);
+  pointer-events: none;
+}
+
+.particle {
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  animation: floatParticle linear infinite;
+  white-space: nowrap;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Glitch */
+.glitch { position: relative; display: inline-block; }
+.glitch::before,
+.glitch::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  overflow: hidden;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+}
+.glitch::before {
+  color: var(--cyan);
+  animation: glitch1 3.5s infinite;
+  clip-path: polygon(0 0, 100% 0, 100% 33%, 0 33%);
+}
+.glitch::after {
+  color: var(--green);
+  animation: glitch2 3.5s infinite;
+  clip-path: polygon(0 66%, 100% 66%, 100% 100%, 0 100%);
+}
+
+.scroll-line {
+  width: 40px; height: 1px;
+  background: linear-gradient(to right, var(--green), transparent);
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.scroll-line::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: var(--green);
+  animation: scrollPulse 2s ease-in-out infinite;
+}
+
+/* ─── SECTION ─── */
+.section-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, var(--border-bright), transparent);
+}
+
+/* ─── ABOUT ─── */
+.stat-box {
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.stat-box::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 2px;
+  background: linear-gradient(to right, var(--green), transparent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s;
+}
+.stat-box:hover::before { transform: scaleX(1); }
+.stat-box:hover { border-color: var(--border-bright) !important; }
+
+/* ─── SKILLS MARQUEE ─── */
+.skills-marquee-wrap {
+  position: relative;
+  overflow: hidden;
+  padding: 20px 0;
+}
+.skills-marquee-wrap::before,
+.skills-marquee-wrap::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 160px;
+  z-index: 2;
+  pointer-events: none;
+}
+.skills-marquee-wrap::before {
+  left: 0;
+  background: linear-gradient(to right, var(--bg), transparent);
+}
+.skills-marquee-wrap::after {
+  right: 0;
+  background: linear-gradient(to left, var(--bg), transparent);
+}
+.skills-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marqueeScroll 28s linear infinite;
+}
+.skills-marquee-track:hover { animation-play-state: paused; }
+
+.skill-card-hover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, var(--green-glow), transparent);
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+.skill-card-hover:hover::after { opacity: 1; }
+.skill-card-hover:hover img {
+  filter: grayscale(0%) drop-shadow(0 0 8px var(--green)) !important;
+  transform: scale(1.1);
+}
+.skill-card-hover:hover span { color: var(--green) !important; }
+
+/* ─── PROJECTS ─── */
+.project-img-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(5,5,8,0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.project-card-wrap:hover .project-img-overlay { opacity: 1; }
+.project-card-wrap:hover { border-color: var(--green) !important; }
+.project-card-wrap:hover .project-tag-item {
+  border-color: oklch(72% 0.25 160 / 0.4) !important;
+  color: var(--green) !important;
+}
+
+/* ─── CONTACT ─── */
+.contact-link-item {
+  transition: all 0.2s;
+}
+.contact-link-item:hover {
+  border-color: var(--green) !important;
+  color: var(--green) !important;
+  transform: translateX(4px);
+}
+.contact-link-item:hover .contact-link-icon-box {
+  border-color: var(--green) !important;
+}
+
+.form-input-field {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 12px 16px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+}
+.form-input-field:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 1px var(--green);
+}
+
+/* ─── FOOTER ─── */
+.status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+  animation: statusPulse 2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+/* ─── SCROLL REVEAL ─── */
+.reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.reveal.visible { opacity: 1; transform: none; }
+.reveal-delay-1 { transition-delay: 0.1s; }
+.reveal-delay-2 { transition-delay: 0.2s; }
+.reveal-delay-3 { transition-delay: 0.3s; }
+.reveal-delay-4 { transition-delay: 0.4s; }
+
+/* ─── HERO ANIMATIONS (entrance) ─── */
+.hero-anim-1 { opacity: 0; animation: fadeUp 0.6s ease 0.2s forwards; }
+.hero-anim-2 { opacity: 0; animation: fadeUp 0.7s ease 0.35s forwards; }
+.hero-anim-3 { opacity: 0; animation: fadeUp 0.7s ease 0.5s forwards; }
+.hero-anim-4 { opacity: 0; animation: fadeUp 0.7s ease 0.65s forwards; }
+.hero-anim-5 { opacity: 0; animation: fadeUp 0.7s ease 0.9s forwards; }
+
+/* ─── KEYFRAMES ─── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+@keyframes glitch1 {
+  0%, 90%, 100% { transform: none; }
+  92% { transform: translate(-3px,  1px); }
+  94% { transform: translate( 3px, -1px); }
+  96% { transform: translate(-1px,  2px); }
+  98% { transform: translate( 1px, -2px); }
+}
+@keyframes glitch2 {
+  0%, 87%, 100% { transform: none; }
+  89% { transform: translate( 2px, -2px); }
+  91% { transform: translate(-2px,  1px); }
+  93% { transform: translate( 3px,  2px); }
+  95% { transform: translate(-1px, -1px); }
+}
+@keyframes scrollPulse {
+  0%   { left: -100%; }
+  100% { left:  100%; }
+}
+@keyframes floatParticle {
+  0%   { transform: translateY(100vh)  translateX(0);             opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 0.6; }
+  100% { transform: translateY(-20vh) translateX(var(--drift));   opacity: 0; }
+}
+@keyframes statusPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+@keyframes marqueeScroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 900px) {
+  .nav-links-desktop { display: none !important; }
+  .about-grid-cols   { grid-template-columns: 1fr !important; }
+  .contact-grid-cols { grid-template-columns: 1fr !important; }
 }
