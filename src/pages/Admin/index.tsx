@@ -1,12 +1,46 @@
-import { useMemo, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react'
 import {
   MOCK_EXPERIENCES,
-  MOCK_LINKS,
   MOCK_MESSAGES,
   MOCK_PROJECTS,
   MOCK_SKILLS,
   MOCK_VISITORS,
 } from '@/data/mock'
+import { useLanguage } from '@/context/LanguageContext'
+import { readFileAsDataUrl } from '@/lib/file-utils'
+import {
+  DEFAULT_API_BASE_URL,
+  clearAdminSession,
+  createAdminProfileStat,
+  createAdminSocialLink,
+  deleteAdminProfileStat,
+  deleteAdminSocialLink,
+  getAdminPortfolioProfile,
+  getAdminProfileStats,
+  getAdminSocialLinks,
+  getStoredAdminSession,
+  isApiError,
+  loginAdmin,
+  removeAdminProfileImage,
+  removeAdminResume,
+  reorderAdminProfileStats,
+  reorderAdminSocialLinks,
+  saveAdminPortfolioProfile,
+  storeAdminSession,
+  toggleAdminSocialLink,
+  updateAdminProfileStat,
+  updateAdminSocialLink,
+  uploadAdminProfileImage,
+  uploadAdminResume,
+  type AdminAuthSession,
+  type PortfolioProfileAdmin,
+  type PortfolioProfileSavePayload,
+  type PortfolioStat,
+  type PortfolioStatSavePayload,
+  type ReorderItemPayload,
+  type SocialLinkAdmin,
+  type SocialLinkSavePayload,
+} from '@/lib/portfolio-api'
 import type { Experience, Message, Project, Skill, Visitor } from '@/types'
 
 type AdminSection =
@@ -23,16 +57,33 @@ type AdminSection =
 interface LinkItem {
   id: number
   platform: string
+  label: string
   url: string
+  icon: string
   active: boolean
+  sortOrder: number
 }
 
 interface AboutState {
-  name: string
-  role: string
+  fullName: string
+  headline: string
+  headlineEn: string
   location: string
-  bio: string
-  available: boolean
+  bioPt: string
+  bioEn: string
+  availableForWork: boolean
+  sinceYear: string
+  profileImageUrl: string | null
+  resumeFileUrl: string | null
+}
+
+interface StatItem {
+  id: number
+  labelPt: string
+  labelEn: string
+  value: string
+  icon: string
+  sortOrder: number
 }
 
 interface SettingsState {
@@ -90,17 +141,22 @@ const NAV_ITEMS: NavItem[] = [
 ]
 
 const ABOUT_INITIAL_STATE: AboutState = {
-  name: 'Kaio Henrique',
-  role: 'Full Stack Developer',
+  fullName: 'Kaio Henrique',
+  headline: 'Desenvolvedor Full Stack',
+  headlineEn: 'Full Stack Developer',
   location: 'Brasil',
-  bio: 'Desenvolvedor Full Stack apaixonado por criar experiencias digitais com foco em performance, clareza visual e manutencao a longo prazo.',
-  available: true,
+  bioPt: 'Desenvolvedor Full Stack apaixonado por criar experiencias digitais com foco em performance, clareza visual e manutencao a longo prazo.',
+  bioEn: 'Full Stack developer focused on building digital experiences with performance, visual clarity and long-term maintainability.',
+  availableForWork: true,
+  sinceYear: '2023',
+  profileImageUrl: null,
+  resumeFileUrl: null,
 }
 
 const SETTINGS_INITIAL_STATE: SettingsState = {
-  apiUrl: 'https://api.kaiodev.com',
-  token: 'sk-demo-token',
-  email: 'kaio@dev.com',
+  apiUrl: DEFAULT_API_BASE_URL,
+  token: '',
+  email: '',
   newPassword: '',
   notifyByEmail: true,
   weeklyVisitorsReport: true,
@@ -256,6 +312,46 @@ const inputStyle: CSSProperties = {
 
 function getNextId(values: Array<{ id: number }>) {
   return values.reduce((max, item) => Math.max(max, item.id), 0) + 1
+}
+
+function mapProfileToAboutState(profile: PortfolioProfileAdmin | null): AboutState {
+  if (!profile) return ABOUT_INITIAL_STATE
+
+  return {
+    fullName: profile.fullName || '',
+    headline: profile.headline || '',
+    headlineEn: profile.headlineEn || '',
+    location: profile.location || '',
+    bioPt: profile.bioPt || '',
+    bioEn: profile.bioEn || '',
+    availableForWork: profile.availableForWork,
+    sinceYear: profile.sinceYear ? String(profile.sinceYear) : '',
+    profileImageUrl: profile.profileImageUrl || null,
+    resumeFileUrl: profile.resumeFileUrl || null,
+  }
+}
+
+function mapStatToItem(stat: PortfolioStat): StatItem {
+  return {
+    id: stat.id,
+    labelPt: stat.labelPt,
+    labelEn: stat.labelEn || '',
+    value: stat.value,
+    icon: stat.icon || '',
+    sortOrder: stat.sortOrder,
+  }
+}
+
+function mapLinkToItem(link: SocialLinkAdmin): LinkItem {
+  return {
+    id: link.id,
+    platform: link.platform,
+    label: link.label || '',
+    url: link.url,
+    icon: link.icon || '',
+    active: link.isActive,
+    sortOrder: link.sortOrder,
+  }
 }
 
 function withProtocol(url: string) {
@@ -879,20 +975,35 @@ function MetricCard({
   )
 }
 
-function LoginScreen({ onLogin }: { onLogin: () => void }) {
+function LoginScreen({ onLogin }: { onLogin: (session: AdminAuthSession) => void }) {
   const [email, setEmail] = useState('kaio@dev.com')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!email.trim() || !password.trim()) {
       setError('Informe email e senha para acessar o painel.')
       return
     }
 
-    setError('')
-    onLogin()
+    try {
+      setLoading(true)
+      setError('')
+
+      const session = await loginAdmin(email.trim(), password)
+      if (!session?.token) {
+        setError('A API nao retornou um token valido.')
+        return
+      }
+
+      onLogin(session)
+    } catch (loginError) {
+      setError(isApiError(loginError) ? loginError.message : 'Nao foi possivel autenticar no backend.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -922,7 +1033,7 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
           {error ? <div style={{ color: 'oklch(65% 0.22 25)', fontSize: 13 }}>{error}</div> : null}
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
             <span style={{ ...sectionEyebrowStyle, color: 'var(--green)' }}>Acesso restrito</span>
-            <ButtonPrimary type="submit">Entrar no painel</ButtonPrimary>
+            <ButtonPrimary type="submit">{loading ? 'entrando...' : 'Entrar no painel'}</ButtonPrimary>
           </div>
         </form>
       </PanelCard>
@@ -1780,15 +1891,162 @@ function VisitorsSection({ visitors }: { visitors: Visitor[] }) {
 function AboutSection({
   about,
   setAbout,
+  stats,
+  onSave,
+  onUploadImage,
+  onRemoveImage,
+  onUploadResume,
+  onRemoveResume,
+  onCreateStat,
+  onUpdateStat,
+  onDeleteStat,
+  onReorderStats,
 }: {
   about: AboutState
   setAbout: React.Dispatch<React.SetStateAction<AboutState>>
+  stats: StatItem[]
+  onSave: (payload: PortfolioProfileSavePayload) => Promise<void>
+  onUploadImage: (file: File) => Promise<void>
+  onRemoveImage: () => Promise<void>
+  onUploadResume: (file: File) => Promise<void>
+  onRemoveResume: () => Promise<void>
+  onCreateStat: (payload: PortfolioStatSavePayload) => Promise<void>
+  onUpdateStat: (id: number, payload: PortfolioStatSavePayload) => Promise<void>
+  onDeleteStat: (id: number) => Promise<void>
+  onReorderStats: (items: ReorderItemPayload[]) => Promise<void>
 }) {
+  const { lang } = useLanguage()
   const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [statsBusy, setStatsBusy] = useState(false)
+  const [editingStatId, setEditingStatId] = useState<number | null>(null)
+  const [statForm, setStatForm] = useState<StatItem>({
+    id: 0,
+    labelPt: '',
+    labelEn: '',
+    value: '',
+    icon: '',
+    sortOrder: stats.length + 1,
+  })
 
-  function save() {
-    setSaved(true)
-    setTimeout(() => setSaved(false), 1800)
+  async function save() {
+    try {
+      setSaving(true)
+      setError('')
+
+      await onSave({
+        fullName: about.fullName,
+        headline: about.headline,
+        headlineEn: about.headlineEn,
+        location: about.location,
+        bioPt: about.bioPt,
+        bioEn: about.bioEn,
+        availableForWork: about.availableForWork,
+        sinceYear: about.sinceYear ? Number(about.sinceYear) : null,
+      })
+
+      setSaved(true)
+      setTimeout(() => setSaved(false), 1800)
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Nao foi possivel salvar o perfil.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'resume') {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    try {
+      setError('')
+      if (type === 'image') await onUploadImage(file)
+      else await onUploadResume(file)
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : 'Nao foi possivel enviar o arquivo.')
+    } finally {
+      event.target.value = ''
+    }
+  }
+
+  async function handleRemoveAsset(type: 'image' | 'resume') {
+    try {
+      setError('')
+      if (type === 'image') await onRemoveImage()
+      else await onRemoveResume()
+    } catch (removeError) {
+      setError(removeError instanceof Error ? removeError.message : 'Nao foi possivel remover o arquivo.')
+    }
+  }
+
+  function resetStatForm() {
+    setEditingStatId(null)
+    setStatForm({
+      id: 0,
+      labelPt: '',
+      labelEn: '',
+      value: '',
+      icon: '',
+      sortOrder: stats.length + 1,
+    })
+  }
+
+  async function saveStat() {
+    try {
+      setStatsBusy(true)
+      setError('')
+
+      const payload: PortfolioStatSavePayload = {
+        labelPt: statForm.labelPt,
+        labelEn: statForm.labelEn || null,
+        value: statForm.value,
+        icon: statForm.icon || null,
+        sortOrder: statForm.sortOrder,
+      }
+
+      if (editingStatId) await onUpdateStat(editingStatId, payload)
+      else await onCreateStat(payload)
+
+      resetStatForm()
+    } catch (statError) {
+      setError(statError instanceof Error ? statError.message : 'Nao foi possivel salvar a estatistica.')
+    } finally {
+      setStatsBusy(false)
+    }
+  }
+
+  async function removeStat(id: number) {
+    try {
+      setStatsBusy(true)
+      setError('')
+      await onDeleteStat(id)
+      if (editingStatId === id) resetStatForm()
+    } catch (statError) {
+      setError(statError instanceof Error ? statError.message : 'Nao foi possivel remover a estatistica.')
+    } finally {
+      setStatsBusy(false)
+    }
+  }
+
+  async function moveStat(id: number, direction: -1 | 1) {
+    const ordered = [...stats].sort((a, b) => a.sortOrder - b.sortOrder)
+    const index = ordered.findIndex((item) => item.id === id)
+    const nextIndex = index + direction
+
+    if (index < 0 || nextIndex < 0 || nextIndex >= ordered.length) return
+
+    const next = [...ordered]
+    ;[next[index], next[nextIndex]] = [next[nextIndex], next[index]]
+
+    try {
+      setStatsBusy(true)
+      await onReorderStats(next.map((item, idx) => ({ id: item.id, sortOrder: idx + 1 })))
+    } catch (statError) {
+      setError(statError instanceof Error ? statError.message : 'Nao foi possivel reordenar as estatisticas.')
+    } finally {
+      setStatsBusy(false)
+    }
   }
 
   return (
@@ -1799,18 +2057,38 @@ function AboutSection({
         <PanelCard accent="linear-gradient(to right, var(--green), var(--cyan))">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div className="admin-grid-2">
-              <TextField label="Nome" value={about.name} onChange={(value) => setAbout({ ...about, name: value })} />
-              <TextField label="Cargo" value={about.role} onChange={(value) => setAbout({ ...about, role: value })} />
+              <TextField label="Nome" value={about.fullName} onChange={(value) => setAbout({ ...about, fullName: value })} />
+              <TextField label="Headline PT" value={about.headline} onChange={(value) => setAbout({ ...about, headline: value })} />
             </div>
+            <TextField label="Headline EN" value={about.headlineEn} onChange={(value) => setAbout({ ...about, headlineEn: value })} />
             <TextField label="Localizacao" value={about.location} onChange={(value) => setAbout({ ...about, location: value })} />
-            <TextAreaField label="Bio" value={about.bio} onChange={(value) => setAbout({ ...about, bio: value })} rows={7} />
+            <TextField label="Ano de inicio" value={about.sinceYear} onChange={(value) => setAbout({ ...about, sinceYear: value })} type="number" />
+            <TextAreaField label="Bio PT" value={about.bioPt} onChange={(value) => setAbout({ ...about, bioPt: value })} rows={6} />
+            <TextAreaField label="Bio EN" value={about.bioEn} onChange={(value) => setAbout({ ...about, bioEn: value })} rows={6} />
             <ToggleField
               label="Disponivel para trabalho"
-              checked={about.available}
-              onChange={(available) => setAbout({ ...about, available })}
+              checked={about.availableForWork}
+              onChange={(availableForWork) => setAbout({ ...about, availableForWork })}
             />
+            <div className="admin-grid-2">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <label style={sectionEyebrowStyle}>Foto de perfil</label>
+                <input type="file" accept="image/*" onChange={(event) => void handleFileChange(event, 'image')} />
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  <ButtonOutline onClick={() => void handleRemoveAsset('image')}>remover foto</ButtonOutline>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <label style={sectionEyebrowStyle}>Curriculo</label>
+                <input type="file" accept=".pdf,.doc,.docx" onChange={(event) => void handleFileChange(event, 'resume')} />
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  <ButtonOutline onClick={() => void handleRemoveAsset('resume')}>remover curriculo</ButtonOutline>
+                </div>
+              </div>
+            </div>
+            {error ? <div style={{ color: 'oklch(65% 0.22 25)', fontSize: 13 }}>{error}</div> : null}
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <ButtonPrimary onClick={save}>{saved ? 'salvo' : 'salvar bio'}</ButtonPrimary>
+              <ButtonPrimary onClick={() => void save()}>{saving ? 'salvando...' : saved ? 'salvo' : 'salvar bio'}</ButtonPrimary>
             </div>
           </div>
         </PanelCard>
@@ -1819,26 +2097,104 @@ function AboutSection({
           <PanelCard>
             <div style={sectionEyebrowStyle}>Preview</div>
             <div style={{ marginTop: 18 }}>
-              <div style={{ fontSize: 26, fontWeight: 700 }}>{about.name}</div>
-              <div style={{ marginTop: 8, fontFamily: 'var(--font-mono)', color: 'var(--green)' }}>{about.role}</div>
-              <div style={{ marginTop: 8, color: 'var(--text-muted)' }}>{about.location}</div>
-              <p style={{ marginTop: 18, color: 'var(--text-muted)', lineHeight: 1.8 }}>{about.bio}</p>
-              <div style={{ marginTop: 18 }}>
-                <TagPill label={about.available ? 'Open to work' : 'Indisponivel'} color={about.available ? 'green' : 'yellow'} />
+              {about.profileImageUrl ? (
+                <img
+                  src={about.profileImageUrl}
+                  alt={about.fullName}
+                  style={{ width: 92, height: 92, objectFit: 'cover', border: '1px solid var(--border)', marginBottom: 18 }}
+                />
+              ) : null}
+              <div style={{ fontSize: 26, fontWeight: 700 }}>{about.fullName}</div>
+              <div style={{ marginTop: 8, fontFamily: 'var(--font-mono)', color: 'var(--green)' }}>
+                {lang === 'pt' ? about.headline : about.headlineEn || about.headline}
               </div>
+              <div style={{ marginTop: 8, color: 'var(--text-muted)' }}>{about.location}</div>
+              <p style={{ marginTop: 18, color: 'var(--text-muted)', lineHeight: 1.8 }}>
+                {lang === 'pt' ? about.bioPt : about.bioEn || about.bioPt}
+              </p>
+              <div style={{ marginTop: 18 }}>
+                <TagPill label={about.availableForWork ? 'Open to work' : 'Indisponivel'} color={about.availableForWork ? 'green' : 'yellow'} />
+              </div>
+              {about.resumeFileUrl ? (
+                <a
+                  href={about.resumeFileUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ display: 'inline-block', marginTop: 16, color: 'var(--green)', textDecoration: 'none', fontFamily: 'var(--font-mono)', fontSize: 12 }}
+                >
+                  abrir curriculo
+                </a>
+              ) : null}
             </div>
           </PanelCard>
 
           <PanelCard>
             <div style={sectionEyebrowStyle}>Resumo do bloco</div>
             <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10, color: 'var(--text-muted)', lineHeight: 1.7 }}>
-              <span>Nome e cargo aparecem no hero e no bloco principal do portfolio.</span>
-              <span>Bio pode alimentar a secao "Sobre mim" ou a descricao do perfil.</span>
-              <span>Disponibilidade pode ser usada no footer e no contato.</span>
+              <span>Nome, headline e localizacao alimentam o Hero e o bloco principal do portfolio.</span>
+              <span>As bios PT/EN ja sao usadas pelo site publico conforme o idioma escolhido.</span>
+              <span>Foto, curriculo e disponibilidade saem do backend da sprint 1.</span>
             </div>
           </PanelCard>
         </div>
       </div>
+
+      <PanelCard style={{ marginTop: 24 }}>
+        <SectionTitle
+          num="06B /"
+          title="Estatisticas"
+          action={<ButtonOutline onClick={resetStatForm}>nova estatistica</ButtonOutline>}
+        />
+
+        <div className="admin-grid-2">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {stats.length ? stats.map((stat, index) => (
+              <div key={stat.id} style={{ border: '1px solid var(--border)', padding: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  <div>
+                    <div style={{ fontWeight: 600 }}>{stat.value}</div>
+                    <div style={{ marginTop: 6, fontSize: 13, color: 'var(--text-muted)' }}>
+                      {stat.labelPt}
+                      {stat.labelEn ? ` / ${stat.labelEn}` : ''}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <ButtonOutline
+                      small
+                      onClick={() => {
+                        setStatForm(stat)
+                        setEditingStatId(stat.id)
+                      }}
+                    >
+                      editar
+                    </ButtonOutline>
+                    <ButtonOutline small onClick={() => void moveStat(stat.id, -1)}>{index === 0 ? 'topo' : 'subir'}</ButtonOutline>
+                    <ButtonOutline small onClick={() => void moveStat(stat.id, 1)}>{index === stats.length - 1 ? 'base' : 'descer'}</ButtonOutline>
+                    <IconButton icon="trash" label="Remover estatistica" color="oklch(65% 0.22 25)" onClick={() => void removeStat(stat.id)} />
+                  </div>
+                </div>
+              </div>
+            )) : <div style={{ color: 'var(--text-muted)' }}>Nenhuma estatistica cadastrada ainda.</div>}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <TextField label="Label PT" value={statForm.labelPt} onChange={(value) => setStatForm({ ...statForm, labelPt: value })} />
+            <TextField label="Label EN" value={statForm.labelEn} onChange={(value) => setStatForm({ ...statForm, labelEn: value })} />
+            <TextField label="Valor" value={statForm.value} onChange={(value) => setStatForm({ ...statForm, value })} />
+            <TextField label="Icone" value={statForm.icon} onChange={(value) => setStatForm({ ...statForm, icon: value })} />
+            <TextField
+              label="Ordem"
+              value={String(statForm.sortOrder)}
+              onChange={(value) => setStatForm({ ...statForm, sortOrder: Number(value) || 0 })}
+              type="number"
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+              <ButtonOutline onClick={resetStatForm}>limpar</ButtonOutline>
+              <ButtonPrimary onClick={() => void saveStat()}>{statsBusy ? 'salvando...' : editingStatId ? 'atualizar' : 'salvar'}</ButtonPrimary>
+            </div>
+          </div>
+        </div>
+      </PanelCard>
     </div>
   )
 }
@@ -1846,10 +2202,101 @@ function AboutSection({
 function LinksSection({
   links,
   setLinks,
+  onCreateLink,
+  onUpdateLink,
+  onDeleteLink,
+  onToggleLink,
+  onReorderLinks,
 }: {
   links: LinkItem[]
   setLinks: React.Dispatch<React.SetStateAction<LinkItem[]>>
+  onCreateLink: (payload: SocialLinkSavePayload) => Promise<void>
+  onUpdateLink: (id: number, payload: SocialLinkSavePayload) => Promise<void>
+  onDeleteLink: (id: number) => Promise<void>
+  onToggleLink: (id: number) => Promise<void>
+  onReorderLinks: (items: ReorderItemPayload[]) => Promise<void>
 }) {
+  const [error, setError] = useState('')
+  const [busyId, setBusyId] = useState<number | null>(null)
+
+  async function saveLink(link: LinkItem) {
+    try {
+      setBusyId(link.id)
+      setError('')
+
+      const payload: SocialLinkSavePayload = {
+        platform: link.platform,
+        label: link.label || null,
+        url: link.url,
+        icon: link.icon || null,
+        isActive: link.active,
+        sortOrder: link.sortOrder,
+      }
+
+      if (link.id > 0) await onUpdateLink(link.id, payload)
+      else await onCreateLink(payload)
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Nao foi possivel salvar o link.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function removeLink(link: LinkItem) {
+    if (link.id <= 0) {
+      setLinks((current) => current.filter((item) => item.id !== link.id))
+      return
+    }
+
+    try {
+      setBusyId(link.id)
+      setError('')
+      await onDeleteLink(link.id)
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Nao foi possivel remover o link.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function toggleLink(link: LinkItem) {
+    if (link.id <= 0) {
+      setLinks((current) => current.map((item) => (item.id === link.id ? { ...item, active: !item.active } : item)))
+      return
+    }
+
+    try {
+      setBusyId(link.id)
+      setError('')
+      await onToggleLink(link.id)
+    } catch (toggleError) {
+      setError(toggleError instanceof Error ? toggleError.message : 'Nao foi possivel alterar o status do link.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function moveLink(id: number, direction: -1 | 1) {
+    const ordered = [...links].sort((a, b) => a.sortOrder - b.sortOrder)
+    const index = ordered.findIndex((item) => item.id === id)
+    const nextIndex = index + direction
+
+    if (index < 0 || nextIndex < 0 || nextIndex >= ordered.length) return
+
+    const next = [...ordered]
+    ;[next[index], next[nextIndex]] = [next[nextIndex], next[index]]
+
+    try {
+      setBusyId(id)
+      setError('')
+      await onReorderLinks(next.filter((item) => item.id > 0).map((item, idx) => ({ id: item.id, sortOrder: idx + 1 })))
+    } catch (reorderError) {
+      setError(reorderError instanceof Error ? reorderError.message : 'Nao foi possivel reordenar os links.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   return (
     <div>
       <SectionTitle
@@ -1861,7 +2308,7 @@ function LinksSection({
             onClick={() =>
               setLinks((current) => [
                 ...current,
-                { id: getNextId(current), platform: 'Novo Link', url: '', active: false },
+                { id: -Date.now(), platform: 'Novo Link', label: '', url: '', icon: '', active: true, sortOrder: current.length + 1 },
               ])
             }
           >
@@ -1870,8 +2317,10 @@ function LinksSection({
         }
       />
 
+      {error ? <div style={{ color: 'oklch(65% 0.22 25)', fontSize: 13, marginBottom: 16 }}>{error}</div> : null}
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 760 }}>
-        {links.map((link) => (
+        {[...links].sort((a, b) => a.sortOrder - b.sortOrder).map((link, index) => (
           <PanelCard key={link.id} style={{ padding: 18 }}>
             <div className="admin-grid-3" style={{ alignItems: 'center' }}>
               <TextField
@@ -1882,11 +2331,35 @@ function LinksSection({
                 }
               />
               <TextField
+                label="Label"
+                value={link.label}
+                onChange={(value) =>
+                  setLinks((current) => current.map((item) => (item.id === link.id ? { ...item, label: value } : item)))
+                }
+              />
+              <TextField
                 label="URL"
                 value={link.url}
                 onChange={(value) =>
                   setLinks((current) => current.map((item) => (item.id === link.id ? { ...item, url: value } : item)))
                 }
+              />
+            </div>
+            <div className="admin-grid-3" style={{ alignItems: 'center', marginTop: 16 }}>
+              <TextField
+                label="Icone"
+                value={link.icon}
+                onChange={(value) =>
+                  setLinks((current) => current.map((item) => (item.id === link.id ? { ...item, icon: value } : item)))
+                }
+              />
+              <TextField
+                label="Ordem"
+                value={String(link.sortOrder)}
+                onChange={(value) =>
+                  setLinks((current) => current.map((item) => (item.id === link.id ? { ...item, sortOrder: Number(value) || 0 } : item)))
+                }
+                type="number"
               />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <label style={sectionEyebrowStyle}>Ativo</label>
@@ -1903,12 +2376,18 @@ function LinksSection({
               <a href={withProtocol(link.url)} target="_blank" rel="noreferrer" style={{ color: 'var(--green)', textDecoration: 'none', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
                 {link.url || 'sem url'}
               </a>
-              <IconButton
-                icon="trash"
-                label="Remover link"
-                color="oklch(65% 0.22 25)"
-                onClick={() => setLinks((current) => current.filter((item) => item.id !== link.id))}
-              />
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <ButtonOutline small onClick={() => void moveLink(link.id, -1)}>{index === 0 ? 'topo' : 'subir'}</ButtonOutline>
+                <ButtonOutline small onClick={() => void moveLink(link.id, 1)}>{index === links.length - 1 ? 'base' : 'descer'}</ButtonOutline>
+                <ButtonOutline small onClick={() => void toggleLink(link)}>{busyId === link.id ? '...' : link.active ? 'ocultar' : 'ativar'}</ButtonOutline>
+                <ButtonPrimary small onClick={() => void saveLink(link)}>{busyId === link.id ? 'salvando...' : 'salvar'}</ButtonPrimary>
+                <IconButton
+                  icon="trash"
+                  label="Remover link"
+                  color="oklch(65% 0.22 25)"
+                  onClick={() => void removeLink(link)}
+                />
+              </div>
             </div>
           </PanelCard>
         ))}
@@ -1971,7 +2450,7 @@ function SettingsSection({
             <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10, color: 'var(--text-muted)', lineHeight: 1.7 }}>
               <span>Este painel foi preparado para rodar na raiz do subdominio de admin.</span>
               <span>No dominio principal, a rota do admin nao fica aberta para acesso publico.</span>
-              <span>Sem backend ainda, os dados continuam mockados e locais ao navegador.</span>
+              <span>PortfolioProfile, ProfileStat e SocialLink ja estao consumindo o backend da sprint 1.</span>
             </div>
           </PanelCard>
         </div>
@@ -1981,10 +2460,11 @@ function SettingsSection({
 }
 
 export function AdminPage() {
-  const [loggedIn, setLoggedIn] = useState(false)
+  const [authSession, setAuthSession] = useState<AdminAuthSession | null>(() => getStoredAdminSession())
   const [page, setPage] = useState<AdminSection>('dashboard')
   const [projectEdit, setProjectEdit] = useState<Project | null | undefined>(undefined)
   const [skillEdit, setSkillEdit] = useState<Skill | null | undefined>(undefined)
+  const [adminError, setAdminError] = useState('')
 
   const [projects, setProjects] = useState<Project[]>(MOCK_PROJECTS)
   const [skills, setSkills] = useState<Skill[]>(MOCK_SKILLS)
@@ -1992,17 +2472,51 @@ export function AdminPage() {
   const [messages, setMessages] = useState<Message[]>(MOCK_MESSAGES)
   const [visitors] = useState<Visitor[]>(MOCK_VISITORS)
   const [about, setAbout] = useState<AboutState>(ABOUT_INITIAL_STATE)
-  const [links, setLinks] = useState<LinkItem[]>(
-    MOCK_LINKS.map((link, index) => ({
-      id: link.id ?? index + 1,
-      platform: link.label,
-      url: link.url.replace(/^https?:\/\//, ''),
-      active: true,
-    })),
-  )
-  const [settings, setSettings] = useState<SettingsState>(SETTINGS_INITIAL_STATE)
+  const [profileStats, setProfileStats] = useState<StatItem[]>([])
+  const [links, setLinks] = useState<LinkItem[]>([])
+  const [settings, setSettings] = useState<SettingsState>(() => ({
+    ...SETTINGS_INITIAL_STATE,
+    token: getStoredAdminSession()?.token || '',
+  }))
 
   const unreadMessages = messages.filter((message) => !message.read).length
+  const loggedIn = Boolean(authSession?.token)
+
+  useEffect(() => {
+    if (!authSession?.token) return
+
+    void loadPortfolioData(authSession.token)
+  }, [authSession?.token])
+
+  function handleUnauthorized() {
+    clearAdminSession()
+    setAuthSession(null)
+    setSettings((current) => ({ ...current, token: '' }))
+    setAdminError('Sua sessao expirou. Entre novamente.')
+  }
+
+  async function loadPortfolioData(token: string) {
+    try {
+      setAdminError('')
+
+      const [profile, stats, socialLinks] = await Promise.all([
+        getAdminPortfolioProfile(token),
+        getAdminProfileStats(token),
+        getAdminSocialLinks(token),
+      ])
+
+      setAbout(mapProfileToAboutState(profile))
+      setProfileStats(stats.map(mapStatToItem))
+      setLinks(socialLinks.map(mapLinkToItem))
+    } catch (loadError) {
+      if (isApiError(loadError) && loadError.status === 401) {
+        handleUnauthorized()
+        return
+      }
+
+      setAdminError(loadError instanceof Error ? loadError.message : 'Nao foi possivel carregar os dados do backend.')
+    }
+  }
 
   function navigate(nextPage: AdminSection) {
     setPage(nextPage)
@@ -2026,6 +2540,91 @@ export function AdminPage() {
     }
 
     setSkills((current) => current.map((item) => (item.id === skill.id ? skill : item)))
+  }
+
+  function requireToken() {
+    const token = authSession?.token
+    if (!token) throw new Error('Sessao nao encontrada. Faca login novamente.')
+    return token
+  }
+
+  async function saveAbout(payload: PortfolioProfileSavePayload) {
+    const token = requireToken()
+    await saveAdminPortfolioProfile(token, payload)
+    await loadPortfolioData(token)
+  }
+
+  async function uploadProfileAsset(file: File, type: 'image' | 'resume') {
+    const token = requireToken()
+    const base64 = await readFileAsDataUrl(file)
+    const payload = { name: file.name, file: base64 }
+
+    if (type === 'image') await uploadAdminProfileImage(token, payload)
+    else await uploadAdminResume(token, payload)
+
+    await loadPortfolioData(token)
+  }
+
+  async function removeProfileAsset(type: 'image' | 'resume') {
+    const token = requireToken()
+    if (type === 'image') await removeAdminProfileImage(token)
+    else await removeAdminResume(token)
+
+    await loadPortfolioData(token)
+  }
+
+  async function createStat(payload: PortfolioStatSavePayload) {
+    const token = requireToken()
+    await createAdminProfileStat(token, payload)
+    await loadPortfolioData(token)
+  }
+
+  async function updateStat(id: number, payload: PortfolioStatSavePayload) {
+    const token = requireToken()
+    await updateAdminProfileStat(token, id, payload)
+    await loadPortfolioData(token)
+  }
+
+  async function deleteStat(id: number) {
+    const token = requireToken()
+    await deleteAdminProfileStat(token, id)
+    await loadPortfolioData(token)
+  }
+
+  async function reorderStats(items: ReorderItemPayload[]) {
+    const token = requireToken()
+    await reorderAdminProfileStats(token, items)
+    await loadPortfolioData(token)
+  }
+
+  async function createLink(payload: SocialLinkSavePayload) {
+    const token = requireToken()
+    await createAdminSocialLink(token, payload)
+    await loadPortfolioData(token)
+  }
+
+  async function updateLink(id: number, payload: SocialLinkSavePayload) {
+    const token = requireToken()
+    await updateAdminSocialLink(token, id, payload)
+    await loadPortfolioData(token)
+  }
+
+  async function deleteLink(id: number) {
+    const token = requireToken()
+    await deleteAdminSocialLink(token, id)
+    await loadPortfolioData(token)
+  }
+
+  async function toggleLink(id: number) {
+    const token = requireToken()
+    await toggleAdminSocialLink(token, id)
+    await loadPortfolioData(token)
+  }
+
+  async function reorderLinks(items: ReorderItemPayload[]) {
+    const token = requireToken()
+    await reorderAdminSocialLinks(token, items)
+    await loadPortfolioData(token)
   }
 
   function renderContent() {
@@ -2072,11 +2671,36 @@ export function AdminPage() {
     }
 
     if (page === 'about') {
-      return <AboutSection about={about} setAbout={setAbout} />
+      return (
+        <AboutSection
+          about={about}
+          setAbout={setAbout}
+          stats={profileStats}
+          onSave={saveAbout}
+          onUploadImage={(file) => uploadProfileAsset(file, 'image')}
+          onRemoveImage={() => removeProfileAsset('image')}
+          onUploadResume={(file) => uploadProfileAsset(file, 'resume')}
+          onRemoveResume={() => removeProfileAsset('resume')}
+          onCreateStat={createStat}
+          onUpdateStat={updateStat}
+          onDeleteStat={deleteStat}
+          onReorderStats={reorderStats}
+        />
+      )
     }
 
     if (page === 'links') {
-      return <LinksSection links={links} setLinks={setLinks} />
+      return (
+        <LinksSection
+          links={links}
+          setLinks={setLinks}
+          onCreateLink={createLink}
+          onUpdateLink={updateLink}
+          onDeleteLink={deleteLink}
+          onToggleLink={toggleLink}
+          onReorderLinks={reorderLinks}
+        />
+      )
     }
 
     if (page === 'settings') {
@@ -2087,15 +2711,39 @@ export function AdminPage() {
   }
 
   if (!loggedIn) {
-    return <LoginScreen onLogin={() => setLoggedIn(true)} />
+    return (
+      <>
+        {adminError ? <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 9999, color: 'oklch(65% 0.22 25)' }}>{adminError}</div> : null}
+        <LoginScreen
+          onLogin={(session) => {
+            storeAdminSession(session)
+            setAuthSession(session)
+            setSettings((current) => ({ ...current, token: session.token }))
+            setAdminError('')
+          }}
+        />
+      </>
+    )
   }
 
   return (
     <div className="admin-page">
       <style>{adminStyles}</style>
       <div className="admin-shell">
-        <Sidebar active={page} unreadMessages={unreadMessages} onNav={navigate} onLogout={() => setLoggedIn(false)} />
-        <main className="admin-main">{renderContent()}</main>
+        <Sidebar
+          active={page}
+          unreadMessages={unreadMessages}
+          onNav={navigate}
+          onLogout={() => {
+            clearAdminSession()
+            setAuthSession(null)
+            setSettings((current) => ({ ...current, token: '' }))
+          }}
+        />
+        <main className="admin-main">
+          {adminError ? <div style={{ color: 'oklch(65% 0.22 25)', marginBottom: 16 }}>{adminError}</div> : null}
+          {renderContent()}
+        </main>
       </div>
     </div>
   )

@@ -1,7 +1,9 @@
 import { useLanguage } from '@/context/LanguageContext'
+import { usePortfolioContent } from '@/context/PortfolioContentContext'
 
 export function Footer() {
   const { t } = useLanguage()
+  const { profile } = usePortfolioContent()
 
   return (
     <footer
@@ -9,12 +11,12 @@ export function Footer() {
       style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
     >
       <div className="footer-meta font-mono text-[11px] tracking-[0.06em]" style={{ color: 'var(--text-dim)' }}>
-        <span>© 2026</span>
+        <span>(c) 2026</span>
         <span className="footer-separator"> - </span>
-        <span style={{ color: 'var(--text-muted)' }}>Kaio Henrique</span>
+        <span style={{ color: 'var(--text-muted)' }}>{profile.fullName}</span>
         <span className="footer-separator"> - </span>
         <span>{t('Feito com', 'Made with')}</span>{' '}
-        <span style={{ color: 'var(--green)' }}>♥</span>
+        <span style={{ color: 'var(--green)' }}>love</span>
       </div>
 
       <div
@@ -22,7 +24,11 @@ export function Footer() {
         style={{ color: 'var(--text-dim)' }}
       >
         <div className="status-dot" />
-        <span>{t('Disponível para trabalho', 'Available for work')}</span>
+        <span>
+          {profile.availableForWork
+            ? t('Disponivel para trabalho', 'Available for work')
+            : t('Indisponivel no momento', 'Currently unavailable')}
+        </span>
       </div>
     </footer>
   )

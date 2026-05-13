@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useLanguage } from '@/context/LanguageContext'
+import { usePortfolioContent } from '@/context/PortfolioContentContext'
 import { useTyped } from '@/hooks/useTyped'
 
 const SNIPPETS = ['const','let','var','=>','for','if()','async','await','<div>','</div>','class','null','true','{}','[]','import','return','===','&&','||','...']
@@ -7,8 +8,12 @@ const LINE_NUMS = ['01','02','03','04','05','06','07','08','09','10']
 
 export function Hero() {
   const { lang, t } = useLanguage()
+  const { profile } = usePortfolioContent()
   const typedRef = useRef<HTMLSpanElement>(null)
   const particlesRef = useRef<HTMLDivElement>(null)
+  const nameParts = profile.fullName.trim().split(/\s+/)
+  const firstName = nameParts[0] || 'Kaio'
+  const remainingName = nameParts.slice(1).join(' ') || 'Henrique'
 
   useTyped(typedRef, lang)
 
@@ -58,7 +63,9 @@ export function Hero() {
           style={{ color: 'var(--green)' }}
         >
           <span className="block w-6 h-px" style={{ background: 'var(--green)' }} />
-          {t('// Desenvolvedor Fullstack', '// Fullstack Developer')}
+          {lang === 'pt'
+            ? `// ${profile.headline || 'Desenvolvedor Fullstack'}`
+            : `// ${profile.headlineEn || profile.headline || 'Fullstack Developer'}`}
         </div>
 
         {/* Name */}
@@ -66,8 +73,8 @@ export function Hero() {
           className="hero-anim-2 font-bold leading-[0.92] tracking-[-0.03em] mb-2"
           style={{ fontSize: 'clamp(56px,8vw,120px)', color: 'var(--text)' }}
         >
-          <span className="glitch" data-text="Kaio">Kaio</span>
-          <span className="block" style={{ color: 'var(--green)' }}>Henrique</span>
+          <span className="glitch" data-text={firstName}>{firstName}</span>
+          <span className="block" style={{ color: 'var(--green)' }}>{remainingName}</span>
         </h1>
 
         {/* Role typed */}

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavScroll } from '@/hooks/useNavScroll'
 import { useLanguage } from '@/context/LanguageContext'
+import { usePortfolioContent } from '@/context/PortfolioContentContext'
 import { THEMES, type ThemeConfig } from '@/data/portfolio'
 
 /* Dropdown shows: Padrão (green) + all 22 heroes */
@@ -29,6 +30,7 @@ function applyTheme(theme: ThemeConfig) {
 export function Navbar() {
   const scrolled = useNavScroll()
   const { lang, setLang, t } = useLanguage()
+  const { profile } = usePortfolioContent()
   const [themeOpen, setThemeOpen]       = useState(false)
   const [activeThemeId, setActiveThemeId] = useState('green')
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -88,7 +90,9 @@ export function Navbar() {
         ))}
         <li>
           <a
-            href="#contact"
+            href={profile.resumeFileUrl || '#contact'}
+            target={profile.resumeFileUrl ? '_blank' : undefined}
+            rel={profile.resumeFileUrl ? 'noreferrer' : undefined}
             className="clip-chip font-mono text-[11px] tracking-[0.08em] px-4 py-2 no-underline transition-all duration-200 hover:-translate-y-0.5"
             style={{ background: 'var(--green)', color: 'var(--bg)' }}
           >
