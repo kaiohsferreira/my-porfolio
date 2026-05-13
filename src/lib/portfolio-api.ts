@@ -14,6 +14,50 @@ export interface AdminAuthSession {
   refreshToken: string
   expiration?: string
   accepted?: boolean
+  user?: AdminUserInfo
+}
+
+export interface AdminUserInfo {
+  id: string
+  fullName?: string
+  area?: string | null
+  email: string
+  name?: string | null
+  lastName?: string | null
+  cep?: string | null
+  stateId?: number | null
+  stateStr?: string | null
+  cityId?: number | null
+  cityStr?: string | null
+  addressStr?: string | null
+  neighborhood?: string | null
+  addressDistrict?: string | null
+  number?: number | null
+  complement?: string | null
+  phoneNumber?: string | null
+  secondaryPhoneNumber?: string | null
+  genderId?: number | null
+  genderStr?: string | null
+  cpf?: string | null
+  birthDateStr?: string | null
+  birthDate?: string | null
+  roles?: string | null
+  rolesList?: string[] | null
+  rolesId?: string[] | null
+  managementsName?: string | null
+  managementsId?: Array<number | string> | null
+  managementsList?: Array<unknown> | null
+  organizationsIds?: Array<number | string> | null
+  organizationsNames?: string[] | null
+  managementSelectedId?: number | string | null
+  managementMatrixId?: number | string | null
+  rolesStr?: string[] | null
+}
+
+interface ApiEnvelopeShape<T> {
+  success?: boolean
+  object?: T
+  message?: string | null
 }
 
 export interface PortfolioProfilePublic {
@@ -180,6 +224,19 @@ async function apiRequest<T>(
   return parseResponse<T>(response, unwrapEnvelope)
 }
 
+function unwrapApiBody<T>(body: T | ApiEnvelopeShape<T>) {
+  const maybeEnvelope = body as ApiEnvelopeShape<T>
+  if (maybeEnvelope && typeof maybeEnvelope === 'object' && 'object' in maybeEnvelope) {
+    if (maybeEnvelope.success === false) {
+      throw new ApiError(maybeEnvelope.message || 'A API retornou uma falha inesperada', 400)
+    }
+
+    return maybeEnvelope.object as T
+  }
+
+  return body as T
+}
+
 export function isApiError(error: unknown): error is ApiError {
   return error instanceof ApiError
 }
@@ -209,11 +266,39 @@ export function clearAdminSession() {
 }
 
 export async function loginAdmin(email: string, password: string) {
-  return apiRequest<AdminAuthSession>('/Account/Login', {
+  const session = await apiRequest<AdminAuthSession | ApiEnvelopeShape<AdminAuthSession>>('/Account/Login', {
     method: 'POST',
     body: { email, password },
     unwrapEnvelope: false,
   })
+
+  return unwrapApiBody(session)
+}
+
+export async function getAdminUserInfo(token: string) {
+  const candidatePaths = ['/Account/UserInfo', '/Account/userinfo', '/UserInfo']
+  let lastError: unknown = null
+
+  for (const path of candidatePaths) {
+    try {
+      const response = await apiRequest<AdminUserInfo | ApiEnvelopeShape<AdminUserInfo>>(path, {
+        token,
+        unwrapEnvelope: false,
+      })
+
+      return unwrapApiBody(response)
+    } catch (error) {
+      if (isApiError(error) && error.status === 404) {
+        lastError = error
+        continue
+      }
+
+      throw error
+    }
+  }
+
+  if (lastError instanceof Error) throw lastError
+  throw new Error('Nao foi possivel localizar o endpoint UserInfo no backend.')
 }
 
 export async function getPublicPortfolioProfile(slug = getPortfolioSlug()) {

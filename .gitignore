@@ -2,6 +2,7 @@
 .cursor
 .claude
 example
+docs
 
 # Dependencies
 node_modules/
@@ -45,3 +46,4 @@ pnpm-debug.log*
 # OS
 .DS_Store
 Thumbs.db
+.vercel

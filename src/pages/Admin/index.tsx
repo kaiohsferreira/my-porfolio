@@ -18,6 +18,7 @@ import {
   getAdminPortfolioProfile,
   getAdminProfileStats,
   getAdminSocialLinks,
+  getAdminUserInfo,
   getStoredAdminSession,
   isApiError,
   loginAdmin,
@@ -33,6 +34,7 @@ import {
   uploadAdminProfileImage,
   uploadAdminResume,
   type AdminAuthSession,
+  type AdminUserInfo,
   type PortfolioProfileAdmin,
   type PortfolioProfileSavePayload,
   type PortfolioStat,
@@ -340,6 +342,29 @@ function mapStatToItem(stat: PortfolioStat): StatItem {
     icon: stat.icon || '',
     sortOrder: stat.sortOrder,
   }
+}
+
+function hasValidManagementSelection(user: AdminUserInfo | null) {
+  if (!user) return false
+
+  const value = user.managementSelectedId
+  if (value === null || value === undefined) return false
+
+  if (typeof value === 'number') return value > 0
+  if (typeof value === 'string') {
+    const normalized = value.trim()
+    if (!normalized || normalized === '0') return false
+    const asNumber = Number(normalized)
+    if (!Number.isNaN(asNumber)) return asNumber > 0
+    return true
+  }
+
+  return true
+}
+
+function getAdminDisplayName(user: AdminUserInfo | null) {
+  if (!user) return 'Administrador'
+  return user.fullName || [user.name, user.lastName].filter(Boolean).join(' ').trim() || user.email || 'Administrador'
 }
 
 function mapLinkToItem(link: SocialLinkAdmin): LinkItem {
@@ -976,7 +1001,7 @@ function MetricCard({
 }
 
 function LoginScreen({ onLogin }: { onLogin: (session: AdminAuthSession) => void }) {
-  const [email, setEmail] = useState('kaio@dev.com')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -1043,11 +1068,13 @@ function LoginScreen({ onLogin }: { onLogin: (session: AdminAuthSession) => void
 
 function Sidebar({
   active,
+  currentUser,
   unreadMessages,
   onNav,
   onLogout,
 }: {
   active: AdminSection
+  currentUser: AdminUserInfo | null
   unreadMessages: number
   onNav: (section: AdminSection) => void
   onLogout: () => void
@@ -1099,8 +1126,8 @@ function Sidebar({
 
         <div style={{ padding: 16, borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 600 }}>Kaio Henrique</div>
-            <div style={{ ...sectionEyebrowStyle, marginTop: 4 }}>admin</div>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>{getAdminDisplayName(currentUser)}</div>
+            <div style={{ ...sectionEyebrowStyle, marginTop: 4 }}>{currentUser?.email || 'admin'}</div>
           </div>
           <IconButton icon="logout" label="Sair" onClick={onLogout} />
         </div>
@@ -2461,10 +2488,12 @@ function SettingsSection({
 
 export function AdminPage() {
   const [authSession, setAuthSession] = useState<AdminAuthSession | null>(() => getStoredAdminSession())
+  const [currentUser, setCurrentUser] = useState<AdminUserInfo | null>(() => getStoredAdminSession()?.user || null)
   const [page, setPage] = useState<AdminSection>('dashboard')
   const [projectEdit, setProjectEdit] = useState<Project | null | undefined>(undefined)
   const [skillEdit, setSkillEdit] = useState<Skill | null | undefined>(undefined)
   const [adminError, setAdminError] = useState('')
+  const [isBootstrapping, setIsBootstrapping] = useState(false)
 
   const [projects, setProjects] = useState<Project[]>(MOCK_PROJECTS)
   const [skills, setSkills] = useState<Skill[]>(MOCK_SKILLS)
@@ -2485,14 +2514,57 @@ export function AdminPage() {
   useEffect(() => {
     if (!authSession?.token) return
 
-    void loadPortfolioData(authSession.token)
-  }, [authSession?.token])
+    void bootstrapAdminSession(authSession.token)
+  }, [authSession?.token, page])
 
   function handleUnauthorized() {
     clearAdminSession()
     setAuthSession(null)
+    setCurrentUser(null)
     setSettings((current) => ({ ...current, token: '' }))
     setAdminError('Sua sessao expirou. Entre novamente.')
+  }
+
+  function persistSession(session: AdminAuthSession) {
+    storeAdminSession(session)
+    setAuthSession(session)
+    setCurrentUser(session.user || null)
+    setSettings((current) => ({ ...current, token: session.token }))
+  }
+
+  async function bootstrapAdminSession(token: string) {
+    try {
+      setIsBootstrapping(true)
+      setAdminError('')
+
+      const userInfo = await getAdminUserInfo(token)
+      const nextSession: AdminAuthSession = {
+        ...(authSession || { token, refreshToken: '' }),
+        token,
+        user: userInfo,
+      }
+
+      persistSession(nextSession)
+
+      if (!hasValidManagementSelection(userInfo)) {
+        setAdminError('Seu usuario autenticou com sucesso, mas ainda nao possui um management selecionado para acessar os endpoints admin do portfolio.')
+        setAbout(ABOUT_INITIAL_STATE)
+        setProfileStats([])
+        setLinks([])
+        return
+      }
+
+      await loadPortfolioData(token)
+    } catch (loadError) {
+      if (isApiError(loadError) && loadError.status === 401) {
+        handleUnauthorized()
+        return
+      }
+
+      setAdminError(loadError instanceof Error ? loadError.message : 'Nao foi possivel validar a sessao do admin.')
+    } finally {
+      setIsBootstrapping(false)
+    }
   }
 
   async function loadPortfolioData(token: string) {
@@ -2548,83 +2620,116 @@ export function AdminPage() {
     return token
   }
 
+  function requireManagementAccess() {
+    if (!hasValidManagementSelection(currentUser)) {
+      throw new Error('Seu usuario esta autenticado, mas o backend retornou managementSelectedId invalido para o painel admin.')
+    }
+  }
+
+  async function runProtectedAction(action: (token: string) => Promise<void>) {
+    try {
+      requireManagementAccess()
+      const token = requireToken()
+      await action(token)
+    } catch (actionError) {
+      if (isApiError(actionError) && actionError.status === 401) {
+        handleUnauthorized()
+        return
+      }
+
+      throw actionError
+    }
+  }
+
   async function saveAbout(payload: PortfolioProfileSavePayload) {
-    const token = requireToken()
-    await saveAdminPortfolioProfile(token, payload)
-    await loadPortfolioData(token)
+    await runProtectedAction(async (token) => {
+      await saveAdminPortfolioProfile(token, payload)
+      await loadPortfolioData(token)
+    })
   }
 
   async function uploadProfileAsset(file: File, type: 'image' | 'resume') {
-    const token = requireToken()
-    const base64 = await readFileAsDataUrl(file)
-    const payload = { name: file.name, file: base64 }
+    await runProtectedAction(async (token) => {
+      const base64 = await readFileAsDataUrl(file)
+      const payload = { name: file.name, file: base64 }
 
-    if (type === 'image') await uploadAdminProfileImage(token, payload)
-    else await uploadAdminResume(token, payload)
+      if (type === 'image') await uploadAdminProfileImage(token, payload)
+      else await uploadAdminResume(token, payload)
 
-    await loadPortfolioData(token)
+      await loadPortfolioData(token)
+    })
   }
 
   async function removeProfileAsset(type: 'image' | 'resume') {
-    const token = requireToken()
-    if (type === 'image') await removeAdminProfileImage(token)
-    else await removeAdminResume(token)
+    await runProtectedAction(async (token) => {
+      if (type === 'image') await removeAdminProfileImage(token)
+      else await removeAdminResume(token)
 
-    await loadPortfolioData(token)
+      await loadPortfolioData(token)
+    })
   }
 
   async function createStat(payload: PortfolioStatSavePayload) {
-    const token = requireToken()
-    await createAdminProfileStat(token, payload)
-    await loadPortfolioData(token)
+    await runProtectedAction(async (token) => {
+      await createAdminProfileStat(token, payload)
+      await loadPortfolioData(token)
+    })
   }
 
   async function updateStat(id: number, payload: PortfolioStatSavePayload) {
-    const token = requireToken()
-    await updateAdminProfileStat(token, id, payload)
-    await loadPortfolioData(token)
+    await runProtectedAction(async (token) => {
+      await updateAdminProfileStat(token, id, payload)
+      await loadPortfolioData(token)
+    })
   }
 
   async function deleteStat(id: number) {
-    const token = requireToken()
-    await deleteAdminProfileStat(token, id)
-    await loadPortfolioData(token)
+    await runProtectedAction(async (token) => {
+      await deleteAdminProfileStat(token, id)
+      await loadPortfolioData(token)
+    })
   }
 
   async function reorderStats(items: ReorderItemPayload[]) {
-    const token = requireToken()
-    await reorderAdminProfileStats(token, items)
-    await loadPortfolioData(token)
+    await runProtectedAction(async (token) => {
+      await reorderAdminProfileStats(token, items)
+      await loadPortfolioData(token)
+    })
   }
 
   async function createLink(payload: SocialLinkSavePayload) {
-    const token = requireToken()
-    await createAdminSocialLink(token, payload)
-    await loadPortfolioData(token)
+    await runProtectedAction(async (token) => {
+      await createAdminSocialLink(token, payload)
+      await loadPortfolioData(token)
+    })
   }
 
   async function updateLink(id: number, payload: SocialLinkSavePayload) {
-    const token = requireToken()
-    await updateAdminSocialLink(token, id, payload)
-    await loadPortfolioData(token)
+    await runProtectedAction(async (token) => {
+      await updateAdminSocialLink(token, id, payload)
+      await loadPortfolioData(token)
+    })
   }
 
   async function deleteLink(id: number) {
-    const token = requireToken()
-    await deleteAdminSocialLink(token, id)
-    await loadPortfolioData(token)
+    await runProtectedAction(async (token) => {
+      await deleteAdminSocialLink(token, id)
+      await loadPortfolioData(token)
+    })
   }
 
   async function toggleLink(id: number) {
-    const token = requireToken()
-    await toggleAdminSocialLink(token, id)
-    await loadPortfolioData(token)
+    await runProtectedAction(async (token) => {
+      await toggleAdminSocialLink(token, id)
+      await loadPortfolioData(token)
+    })
   }
 
   async function reorderLinks(items: ReorderItemPayload[]) {
-    const token = requireToken()
-    await reorderAdminSocialLinks(token, items)
-    await loadPortfolioData(token)
+    await runProtectedAction(async (token) => {
+      await reorderAdminSocialLinks(token, items)
+      await loadPortfolioData(token)
+    })
   }
 
   function renderContent() {
@@ -2716,9 +2821,7 @@ export function AdminPage() {
         {adminError ? <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 9999, color: 'oklch(65% 0.22 25)' }}>{adminError}</div> : null}
         <LoginScreen
           onLogin={(session) => {
-            storeAdminSession(session)
-            setAuthSession(session)
-            setSettings((current) => ({ ...current, token: session.token }))
+            persistSession(session)
             setAdminError('')
           }}
         />
@@ -2732,16 +2835,19 @@ export function AdminPage() {
       <div className="admin-shell">
         <Sidebar
           active={page}
+          currentUser={currentUser}
           unreadMessages={unreadMessages}
           onNav={navigate}
           onLogout={() => {
             clearAdminSession()
             setAuthSession(null)
+            setCurrentUser(null)
             setSettings((current) => ({ ...current, token: '' }))
           }}
         />
         <main className="admin-main">
           {adminError ? <div style={{ color: 'oklch(65% 0.22 25)', marginBottom: 16 }}>{adminError}</div> : null}
+          {isBootstrapping ? <div style={{ color: 'var(--text-muted)', marginBottom: 16 }}>Validando sessao e carregando UserInfo...</div> : null}
           {renderContent()}
         </main>
       </div>
