@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import {
-  getPortfolioSlug,
+  getPortfolioUrl,
   getPublicPortfolioProfile,
+  getPublicSocialLinks,
   isApiError,
   type PortfolioProfilePublic,
 } from '@/lib/portfolio-api'
@@ -10,7 +11,7 @@ interface PortfolioContentContextValue {
   profile: PortfolioProfilePublic
   loading: boolean
   error: string | null
-  slug: string
+  portfolioUrl: string
   refresh: () => Promise<void>
 }
 
@@ -45,15 +46,23 @@ export function PortfolioContentProvider({ children }: { children: ReactNode }) 
   const [profile, setProfile] = useState(DEFAULT_PROFILE)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [slug] = useState(() => getPortfolioSlug())
+  const [portfolioUrl] = useState(() => getPortfolioUrl())
 
   async function loadProfile() {
     try {
       setLoading(true)
       setError(null)
 
-      const nextProfile = await getPublicPortfolioProfile(slug)
-      setProfile({ ...DEFAULT_PROFILE, ...nextProfile })
+      const [nextProfile, socialLinks] = await Promise.all([
+        getPublicPortfolioProfile(portfolioUrl),
+        getPublicSocialLinks(portfolioUrl),
+      ])
+
+      setProfile({
+        ...DEFAULT_PROFILE,
+        ...nextProfile,
+        socialLinks: socialLinks.length ? socialLinks : nextProfile.socialLinks,
+      })
     } catch (loadError) {
       const message =
         isApiError(loadError) ? loadError.message : 'Nao foi possivel carregar os dados publicos do portfolio.'
@@ -67,7 +76,7 @@ export function PortfolioContentProvider({ children }: { children: ReactNode }) 
 
   useEffect(() => {
     void loadProfile()
-  }, [slug])
+  }, [portfolioUrl])
 
   return (
     <PortfolioContentContext.Provider
@@ -75,7 +84,7 @@ export function PortfolioContentProvider({ children }: { children: ReactNode }) 
         profile,
         loading,
         error,
-        slug,
+        portfolioUrl,
         refresh: loadProfile,
       }}
     >

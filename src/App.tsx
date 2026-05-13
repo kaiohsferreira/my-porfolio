@@ -56,23 +56,28 @@ export function App() {
   return (
     <ThemeProvider>
       <LanguageProvider>
-        <PortfolioContentProvider>
-          <BrowserRouter>
-            <Suspense fallback={adminFallback}>
-              {isAdminHost ? (
-                <Routes>
-                  <Route path="*" element={<AdminPage />} />
-                </Routes>
-              ) : (
-                <Routes>
-                  <Route path="/" element={<PortfolioPage />} />
-                  {allowLocalAdminRoute ? <Route path="/admin/*" element={<AdminPage />} /> : null}
-                  <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-              )}
-            </Suspense>
-          </BrowserRouter>
-        </PortfolioContentProvider>
+        <BrowserRouter>
+          <Suspense fallback={adminFallback}>
+            {isAdminHost ? (
+              <Routes>
+                <Route path="*" element={<AdminPage />} />
+              </Routes>
+            ) : (
+              <Routes>
+                <Route
+                  path="/"
+                  element={(
+                    <PortfolioContentProvider>
+                      <PortfolioPage />
+                    </PortfolioContentProvider>
+                  )}
+                />
+                {allowLocalAdminRoute ? <Route path="/admin/*" element={<AdminPage />} /> : null}
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            )}
+          </Suspense>
+        </BrowserRouter>
       </LanguageProvider>
     </ThemeProvider>
   )

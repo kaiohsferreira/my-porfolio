@@ -1,5 +1,5 @@
 export const DEFAULT_API_BASE_URL = 'https://my-portfolio-be-production-92b1.up.railway.app'
-const DEFAULT_PORTFOLIO_SLUG = 'kaioferreira'
+const DEFAULT_PORTFOLIO_URL = 'https://kaioferreira.com'
 const ADMIN_AUTH_STORAGE_KEY = 'portfolio-admin-auth'
 
 export interface ApiResponseEnvelope<T> {
@@ -20,6 +20,7 @@ export interface AdminAuthSession {
 export interface AdminUserInfo {
   id: string
   fullName?: string
+  hasPortfolio?: boolean
   area?: string | null
   email: string
   name?: string | null
@@ -73,6 +74,8 @@ export interface PortfolioProfilePublic {
   resumeFileUrl: string | null
   stats: PortfolioStat[]
   socialLinks: SocialLinkPublic[]
+  photoUrl?: string | null
+  resumeUrl?: string | null
 }
 
 export interface PortfolioProfileAdmin extends PortfolioProfilePublic {
@@ -113,6 +116,27 @@ export interface ReorderItemPayload {
   sortOrder: number
 }
 
+export interface DashboardSummary {
+  publishedProjectsCount: number
+  skillsCount: number
+  unreadMessagesCount: number
+  visitorsThisMonth: number
+  visitorsLastMonth: number
+  visitorGrowthPercent: number
+  recentMessages: ContactMessageAdmin[]
+  featuredProjects: AdminProject[]
+}
+
+export interface PortfolioSetupUrlCheck {
+  available: boolean
+  message: string
+}
+
+export interface PortfolioSetupCreatePayload {
+  name: string
+  portfolioUrl: string
+}
+
 export interface SocialLinkPublic {
   platform: string
   label: string | null
@@ -136,6 +160,95 @@ export interface SocialLinkSavePayload {
   sortOrder: number
 }
 
+export interface AdminProject {
+  id: number
+  title: string
+  description: string | null
+  repositoryUrl: string | null
+  liveUrl: string | null
+  tags: string[]
+  status: 'RASCUNHO' | 'PUBLICADO'
+  isFeatured: boolean
+  createdAt?: string | null
+  updatedAt?: string | null
+}
+
+export interface AdminProjectSavePayload {
+  title: string
+  description?: string | null
+  repositoryUrl?: string | null
+  liveUrl?: string | null
+  tags: string[]
+  status: 'RASCUNHO' | 'PUBLICADO'
+  isFeatured: boolean
+}
+
+export interface AdminSkill {
+  id: number
+  name: string
+  category: string | null
+  level: number
+  sortOrder: number
+}
+
+export interface AdminSkillSavePayload {
+  name: string
+  category?: string | null
+  level: number
+  sortOrder: number
+}
+
+export interface AdminExperience {
+  id: number
+  role: string
+  company: string
+  period: string | null
+  description: string | null
+  sortOrder: number
+}
+
+export interface AdminExperienceSavePayload {
+  role: string
+  company: string
+  period?: string | null
+  description?: string | null
+  sortOrder: number
+}
+
+export interface ContactMessageAdmin {
+  id: number
+  senderName: string
+  senderEmail: string
+  body: string
+  isRead: boolean
+  createdAt: string
+}
+
+export interface VisitorTopPage {
+  page: string
+  count: number
+}
+
+export interface VisitorMonthlyPoint {
+  month: string
+  count: number
+}
+
+export interface VisitorStatsAdmin {
+  totalThisMonth: number
+  totalLastMonth: number
+  growthPercent: number
+  uniqueSessionsThisMonth: number
+  topCountry: string | null
+  topPages: VisitorTopPage[]
+  monthlyChart: VisitorMonthlyPoint[]
+}
+
+export interface ResetPasswordPayload {
+  currentPassword: string
+  newPassword: string
+}
+
 export interface FilePayload {
   file: string
   name: string
@@ -155,21 +268,26 @@ export function getApiBaseUrl() {
   return (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || DEFAULT_API_BASE_URL
 }
 
-export function getPortfolioSlug() {
-  const explicitSlug = (import.meta.env.VITE_PORTFOLIO_SLUG as string | undefined)?.trim()
-  if (explicitSlug) return explicitSlug
+export function getPortfolioUrl() {
+  const explicitUrl = (import.meta.env.VITE_PORTFOLIO_URL as string | undefined)?.trim()
+  if (explicitUrl) return explicitUrl
 
-  if (typeof window === 'undefined') return DEFAULT_PORTFOLIO_SLUG
+  if (typeof window === 'undefined') return DEFAULT_PORTFOLIO_URL
 
-  const parts = window.location.hostname.toLowerCase().split('.').filter(Boolean)
-  if (!parts.length) return DEFAULT_PORTFOLIO_SLUG
+  const { protocol, hostname } = window.location
+  const normalizedProtocol = protocol === 'http:' || protocol === 'https:' ? protocol : 'https:'
+  const parts = hostname.toLowerCase().split('.').filter(Boolean)
+  if (!parts.length) return DEFAULT_PORTFOLIO_URL
 
   if (parts[0] === 'localhost' || parts[0] === '127' || parts[0] === '0') {
-    return DEFAULT_PORTFOLIO_SLUG
+    return DEFAULT_PORTFOLIO_URL
   }
 
-  const filteredParts = parts.filter((part) => part !== 'www' && part !== 'admin')
-  return filteredParts[0] || DEFAULT_PORTFOLIO_SLUG
+  const normalizedHost =
+    parts[0] === 'admin' || parts[0] === 'www'
+      ? parts.slice(1).join('.')
+      : hostname.toLowerCase()
+  return `${normalizedProtocol}//${normalizedHost}`
 }
 
 function getDefaultHeaders(token?: string) {
@@ -237,6 +355,31 @@ function unwrapApiBody<T>(body: T | ApiEnvelopeShape<T>) {
   return body as T
 }
 
+function normalizeErrorMessage(message: string) {
+  return message
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+}
+
+function isMissingProfileError(error: unknown) {
+  if (!isApiError(error)) return false
+  if (error.status !== 400 && error.status !== 404) return false
+
+  const message = normalizeErrorMessage(error.message || '')
+  return message.includes('perfil') && (message.includes('nao encontrado') || message.includes('not found'))
+}
+
+function normalizePortfolioProfile<T extends PortfolioProfilePublic>(profile: T): T {
+  return {
+    ...profile,
+    profileImageUrl: profile.profileImageUrl ?? profile.photoUrl ?? null,
+    resumeFileUrl: profile.resumeFileUrl ?? profile.resumeUrl ?? null,
+    stats: profile.stats ?? [],
+    socialLinks: profile.socialLinks ?? [],
+  }
+}
+
 export function isApiError(error: unknown): error is ApiError {
   return error instanceof ApiError
 }
@@ -301,15 +444,38 @@ export async function getAdminUserInfo(token: string) {
   throw new Error('Nao foi possivel localizar o endpoint UserInfo no backend.')
 }
 
-export async function getPublicPortfolioProfile(slug = getPortfolioSlug()) {
-  return apiRequest<PortfolioProfilePublic>(`/public/portfolio/${slug}/profile`)
+export async function checkPortfolioSetupUrl(token: string, portfolioUrl: string) {
+  const encodedUrl = encodeURIComponent(portfolioUrl)
+  return apiRequest<PortfolioSetupUrlCheck>(`/PortfolioSetup/CheckUrl?url=${encodedUrl}`, {
+    token,
+  })
+}
+
+export async function createPortfolioSetup(token: string, payload: PortfolioSetupCreatePayload) {
+  return apiRequest<void>('/PortfolioSetup/Create', {
+    method: 'POST',
+    token,
+    body: payload,
+  })
+}
+
+export async function getPublicPortfolioProfile(portfolioUrl = getPortfolioUrl()) {
+  const encodedUrl = encodeURIComponent(portfolioUrl)
+  const profile = await apiRequest<PortfolioProfilePublic>(`/PublicPortfolioProfile/Get?url=${encodedUrl}`)
+  return normalizePortfolioProfile(profile)
+}
+
+export async function getPublicSocialLinks(portfolioUrl = getPortfolioUrl()) {
+  const encodedUrl = encodeURIComponent(portfolioUrl)
+  return apiRequest<SocialLinkPublic[]>(`/PublicSocialLink/GetActive?url=${encodedUrl}`)
 }
 
 export async function getAdminPortfolioProfile(token: string) {
   try {
-    return await apiRequest<PortfolioProfileAdmin>('/admin/portfolio/profile', { token })
+    const profile = await apiRequest<PortfolioProfileAdmin>('/PortfolioProfile/Get', { token })
+    return normalizePortfolioProfile(profile)
   } catch (error) {
-    if (isApiError(error) && error.status === 404) {
+    if (isMissingProfileError(error)) {
       return null
     }
 
@@ -318,15 +484,15 @@ export async function getAdminPortfolioProfile(token: string) {
 }
 
 export async function saveAdminPortfolioProfile(token: string, payload: PortfolioProfileSavePayload) {
-  return apiRequest<void>('/admin/portfolio/profile', {
-    method: 'PUT',
+  return apiRequest<void>('/PortfolioProfile/Save', {
+    method: 'POST',
     token,
     body: payload,
   })
 }
 
 export async function uploadAdminProfileImage(token: string, payload: FilePayload) {
-  return apiRequest<void>('/admin/portfolio/profile/image', {
+  return apiRequest<void>('/PortfolioProfile/UploadImage', {
     method: 'POST',
     token,
     body: payload,
@@ -334,14 +500,14 @@ export async function uploadAdminProfileImage(token: string, payload: FilePayloa
 }
 
 export async function removeAdminProfileImage(token: string) {
-  return apiRequest<void>('/admin/portfolio/profile/image', {
-    method: 'DELETE',
+  return apiRequest<void>('/PortfolioProfile/RemoveImage', {
+    method: 'POST',
     token,
   })
 }
 
 export async function uploadAdminResume(token: string, payload: FilePayload) {
-  return apiRequest<void>('/admin/portfolio/profile/resume', {
+  return apiRequest<void>('/PortfolioProfile/UploadResume', {
     method: 'POST',
     token,
     body: payload,
@@ -349,18 +515,26 @@ export async function uploadAdminResume(token: string, payload: FilePayload) {
 }
 
 export async function removeAdminResume(token: string) {
-  return apiRequest<void>('/admin/portfolio/profile/resume', {
-    method: 'DELETE',
+  return apiRequest<void>('/PortfolioProfile/RemoveResume', {
+    method: 'POST',
     token,
   })
 }
 
 export async function getAdminProfileStats(token: string) {
-  return apiRequest<PortfolioStat[]>('/admin/portfolio/profile/stats', { token })
+  try {
+    return await apiRequest<PortfolioStat[]>('/ProfileStat/GetAll', { token })
+  } catch (error) {
+    if (isMissingProfileError(error)) {
+      return []
+    }
+
+    throw error
+  }
 }
 
 export async function createAdminProfileStat(token: string, payload: PortfolioStatSavePayload) {
-  return apiRequest<void>('/admin/portfolio/profile/stats', {
+  return apiRequest<void>('/ProfileStat/Save', {
     method: 'POST',
     token,
     body: payload,
@@ -368,34 +542,34 @@ export async function createAdminProfileStat(token: string, payload: PortfolioSt
 }
 
 export async function updateAdminProfileStat(token: string, id: number, payload: PortfolioStatSavePayload) {
-  return apiRequest<void>(`/admin/portfolio/profile/stats/${id}`, {
-    method: 'PUT',
+  return apiRequest<void>(`/ProfileStat/Update/${id}`, {
+    method: 'POST',
     token,
     body: payload,
   })
 }
 
 export async function deleteAdminProfileStat(token: string, id: number) {
-  return apiRequest<void>(`/admin/portfolio/profile/stats/${id}`, {
-    method: 'DELETE',
+  return apiRequest<void>(`/ProfileStat/Delete/${id}`, {
+    method: 'POST',
     token,
   })
 }
 
 export async function reorderAdminProfileStats(token: string, items: ReorderItemPayload[]) {
-  return apiRequest<void>('/admin/portfolio/profile/stats/reorder', {
-    method: 'PUT',
+  return apiRequest<void>('/ProfileStat/Reorder', {
+    method: 'POST',
     token,
     body: items,
   })
 }
 
 export async function getAdminSocialLinks(token: string) {
-  return apiRequest<SocialLinkAdmin[]>('/admin/portfolio/social-link', { token })
+  return apiRequest<SocialLinkAdmin[]>('/SocialLink/GetAll', { token })
 }
 
 export async function createAdminSocialLink(token: string, payload: SocialLinkSavePayload) {
-  return apiRequest<void>('/admin/portfolio/social-link', {
+  return apiRequest<void>('/SocialLink/Save', {
     method: 'POST',
     token,
     body: payload,
@@ -403,31 +577,170 @@ export async function createAdminSocialLink(token: string, payload: SocialLinkSa
 }
 
 export async function updateAdminSocialLink(token: string, id: number, payload: SocialLinkSavePayload) {
-  return apiRequest<void>(`/admin/portfolio/social-link/${id}`, {
-    method: 'PUT',
+  return apiRequest<void>(`/SocialLink/Update/${id}`, {
+    method: 'POST',
     token,
     body: payload,
   })
 }
 
 export async function deleteAdminSocialLink(token: string, id: number) {
-  return apiRequest<void>(`/admin/portfolio/social-link/${id}`, {
-    method: 'DELETE',
+  return apiRequest<void>(`/SocialLink/Delete/${id}`, {
+    method: 'POST',
     token,
   })
 }
 
 export async function toggleAdminSocialLink(token: string, id: number) {
-  return apiRequest<void>(`/admin/portfolio/social-link/${id}/toggle`, {
-    method: 'PATCH',
+  return apiRequest<void>(`/SocialLink/Toggle/${id}`, {
+    method: 'POST',
     token,
   })
 }
 
 export async function reorderAdminSocialLinks(token: string, items: ReorderItemPayload[]) {
-  return apiRequest<void>('/admin/portfolio/social-link/reorder', {
-    method: 'PUT',
+  return apiRequest<void>('/SocialLink/Reorder', {
+    method: 'POST',
     token,
     body: items,
+  })
+}
+
+export async function getAdminDashboard(token: string) {
+  return apiRequest<DashboardSummary>('/Dashboard/Get', { token })
+}
+
+export async function getAdminProjects(token: string) {
+  return apiRequest<AdminProject[]>('/Project/GetAll', { token })
+}
+
+export async function createAdminProject(token: string, payload: AdminProjectSavePayload) {
+  return apiRequest<void>('/Project/Save', {
+    method: 'POST',
+    token,
+    body: payload,
+  })
+}
+
+export async function updateAdminProject(token: string, id: number, payload: AdminProjectSavePayload) {
+  return apiRequest<void>(`/Project/Update/${id}`, {
+    method: 'POST',
+    token,
+    body: payload,
+  })
+}
+
+export async function deleteAdminProject(token: string, id: number) {
+  return apiRequest<void>(`/Project/Delete/${id}`, {
+    method: 'POST',
+    token,
+  })
+}
+
+export async function getAdminSkills(token: string) {
+  return apiRequest<AdminSkill[]>('/Skill/GetAll', { token })
+}
+
+export async function createAdminSkill(token: string, payload: AdminSkillSavePayload) {
+  return apiRequest<void>('/Skill/Save', {
+    method: 'POST',
+    token,
+    body: payload,
+  })
+}
+
+export async function updateAdminSkill(token: string, id: number, payload: AdminSkillSavePayload) {
+  return apiRequest<void>(`/Skill/Update/${id}`, {
+    method: 'POST',
+    token,
+    body: payload,
+  })
+}
+
+export async function deleteAdminSkill(token: string, id: number) {
+  return apiRequest<void>(`/Skill/Delete/${id}`, {
+    method: 'POST',
+    token,
+  })
+}
+
+export async function reorderAdminSkills(token: string, items: ReorderItemPayload[]) {
+  return apiRequest<void>('/Skill/Reorder', {
+    method: 'POST',
+    token,
+    body: items,
+  })
+}
+
+export async function getAdminExperiences(token: string) {
+  return apiRequest<AdminExperience[]>('/Experience/GetAll', { token })
+}
+
+export async function createAdminExperience(token: string, payload: AdminExperienceSavePayload) {
+  return apiRequest<void>('/Experience/Save', {
+    method: 'POST',
+    token,
+    body: payload,
+  })
+}
+
+export async function updateAdminExperience(token: string, id: number, payload: AdminExperienceSavePayload) {
+  return apiRequest<void>(`/Experience/Update/${id}`, {
+    method: 'POST',
+    token,
+    body: payload,
+  })
+}
+
+export async function deleteAdminExperience(token: string, id: number) {
+  return apiRequest<void>(`/Experience/Delete/${id}`, {
+    method: 'POST',
+    token,
+  })
+}
+
+export async function reorderAdminExperiences(token: string, items: ReorderItemPayload[]) {
+  return apiRequest<void>('/Experience/Reorder', {
+    method: 'POST',
+    token,
+    body: items,
+  })
+}
+
+export async function getAdminMessages(token: string) {
+  return apiRequest<ContactMessageAdmin[]>('/ContactMessage/GetAll', { token })
+}
+
+export async function markAdminMessageAsRead(token: string, id: number) {
+  return apiRequest<void>(`/ContactMessage/MarkAsRead/${id}`, {
+    method: 'POST',
+    token,
+  })
+}
+
+export async function deleteAdminMessage(token: string, id: number) {
+  return apiRequest<void>(`/ContactMessage/Delete/${id}`, {
+    method: 'POST',
+    token,
+  })
+}
+
+export async function getAdminVisitorStats(token: string) {
+  return apiRequest<VisitorStatsAdmin>('/Visitor/GetStats', { token })
+}
+
+export async function resetAdminPassword(token: string, payload: ResetPasswordPayload) {
+  return apiRequest<void>('/Account/ResetPasswordSignIn', {
+    method: 'POST',
+    token,
+    body: payload,
+  })
+}
+
+export async function saveAdminAccount(token: string, payload: Record<string, unknown>) {
+  return apiRequest<void>('/Account/Save', {
+    method: 'POST',
+    token,
+    body: payload,
   })
 }

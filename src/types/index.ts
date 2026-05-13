@@ -4,9 +4,12 @@ export interface Project {
   desc: string
   tags: string[]
   repo: string
+  liveUrl: string
   featured: boolean
   status: 'published' | 'draft'
   thumb: string | null
+  createdAt?: string | null
+  updatedAt?: string | null
 }
 
 export interface Skill {
@@ -14,6 +17,7 @@ export interface Skill {
   name: string
   category: string
   level: number
+  sortOrder?: number
 }
 
 export interface Experience {
@@ -22,6 +26,7 @@ export interface Experience {
   company: string
   period: string
   desc: string
+  sortOrder?: number
 }
 
 export interface Message {
@@ -31,6 +36,7 @@ export interface Message {
   msg: string
   date: string
   read: boolean
+  createdAt?: string | null
 }
 
 export interface Visitor {

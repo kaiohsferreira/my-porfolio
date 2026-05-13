@@ -1,49 +1,75 @@
 import { useEffect, useMemo, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react'
-import {
-  MOCK_EXPERIENCES,
-  MOCK_MESSAGES,
-  MOCK_PROJECTS,
-  MOCK_SKILLS,
-  MOCK_VISITORS,
-} from '@/data/mock'
 import { useLanguage } from '@/context/LanguageContext'
 import { readFileAsDataUrl } from '@/lib/file-utils'
 import {
+  createAdminExperience,
+  createAdminProject,
+  createAdminSkill,
+  checkPortfolioSetupUrl,
   DEFAULT_API_BASE_URL,
   clearAdminSession,
+  deleteAdminExperience,
+  deleteAdminMessage,
+  deleteAdminProject,
+  createPortfolioSetup,
   createAdminProfileStat,
   createAdminSocialLink,
   deleteAdminProfileStat,
+  deleteAdminSkill,
   deleteAdminSocialLink,
+  getAdminDashboard,
+  getAdminExperiences,
+  getAdminMessages,
   getAdminPortfolioProfile,
   getAdminProfileStats,
+  getAdminProjects,
   getAdminSocialLinks,
+  getAdminSkills,
   getAdminUserInfo,
+  getAdminVisitorStats,
+  getPortfolioUrl,
   getStoredAdminSession,
   isApiError,
   loginAdmin,
+  markAdminMessageAsRead,
   removeAdminProfileImage,
   removeAdminResume,
+  reorderAdminExperiences,
   reorderAdminProfileStats,
   reorderAdminSocialLinks,
+  resetAdminPassword,
+  saveAdminAccount,
   saveAdminPortfolioProfile,
   storeAdminSession,
   toggleAdminSocialLink,
+  updateAdminExperience,
   updateAdminProfileStat,
+  updateAdminProject,
   updateAdminSocialLink,
+  updateAdminSkill,
   uploadAdminProfileImage,
   uploadAdminResume,
+  type AdminExperience,
+  type AdminExperienceSavePayload,
+  type AdminProject,
+  type AdminProjectSavePayload,
+  type AdminSkill,
+  type AdminSkillSavePayload,
   type AdminAuthSession,
   type AdminUserInfo,
+  type ContactMessageAdmin,
+  type DashboardSummary,
   type PortfolioProfileAdmin,
   type PortfolioProfileSavePayload,
+  type PortfolioSetupUrlCheck,
   type PortfolioStat,
   type PortfolioStatSavePayload,
   type ReorderItemPayload,
   type SocialLinkAdmin,
   type SocialLinkSavePayload,
+  type VisitorStatsAdmin,
 } from '@/lib/portfolio-api'
-import type { Experience, Message, Project, Skill, Visitor } from '@/types'
+import type { Experience, Message, Project, Skill } from '@/types'
 
 type AdminSection =
   | 'dashboard'
@@ -92,6 +118,7 @@ interface SettingsState {
   apiUrl: string
   token: string
   email: string
+  currentPassword: string
   newPassword: string
   notifyByEmail: boolean
   weeklyVisitorsReport: boolean
@@ -159,6 +186,7 @@ const SETTINGS_INITIAL_STATE: SettingsState = {
   apiUrl: DEFAULT_API_BASE_URL,
   token: '',
   email: '',
+  currentPassword: '',
   newPassword: '',
   notifyByEmail: true,
   weeklyVisitorsReport: true,
@@ -323,10 +351,6 @@ const inputStyle: CSSProperties = {
   outline: 'none',
 }
 
-function getNextId(values: Array<{ id: number }>) {
-  return values.reduce((max, item) => Math.max(max, item.id), 0) + 1
-}
-
 function mapProfileToAboutState(profile: PortfolioProfileAdmin | null): AboutState {
   if (!profile) return ABOUT_INITIAL_STATE
 
@@ -355,6 +379,98 @@ function mapStatToItem(stat: PortfolioStat): StatItem {
   }
 }
 
+function mapProjectToItem(project: AdminProject): Project {
+  return {
+    id: project.id,
+    title: project.title,
+    desc: project.description || '',
+    tags: project.tags || [],
+    repo: project.repositoryUrl || '',
+    liveUrl: project.liveUrl || '',
+    featured: project.isFeatured,
+    status: project.status === 'PUBLICADO' ? 'published' : 'draft',
+    thumb: null,
+    createdAt: project.createdAt || null,
+    updatedAt: project.updatedAt || null,
+  }
+}
+
+function mapProjectToPayload(project: Project): AdminProjectSavePayload {
+  return {
+    title: project.title.trim(),
+    description: project.desc.trim() || null,
+    repositoryUrl: project.repo.trim() || null,
+    liveUrl: project.liveUrl.trim() || null,
+    tags: project.tags,
+    status: project.status === 'published' ? 'PUBLICADO' : 'RASCUNHO',
+    isFeatured: project.featured,
+  }
+}
+
+function mapSkillToItem(skill: AdminSkill): Skill {
+  return {
+    id: skill.id,
+    name: skill.name,
+    category: skill.category || 'Sem categoria',
+    level: skill.level,
+    sortOrder: skill.sortOrder,
+  }
+}
+
+function mapSkillToPayload(skill: Skill, fallbackSortOrder: number): AdminSkillSavePayload {
+  return {
+    name: skill.name.trim(),
+    category: skill.category.trim() || null,
+    level: skill.level,
+    sortOrder: skill.sortOrder ?? fallbackSortOrder,
+  }
+}
+
+function mapExperienceToItem(experience: AdminExperience): Experience {
+  return {
+    id: experience.id,
+    role: experience.role,
+    company: experience.company,
+    period: experience.period || '',
+    desc: experience.description || '',
+    sortOrder: experience.sortOrder,
+  }
+}
+
+function mapExperienceToPayload(experience: Experience, fallbackSortOrder: number): AdminExperienceSavePayload {
+  return {
+    role: experience.role.trim(),
+    company: experience.company.trim(),
+    period: experience.period.trim() || null,
+    description: experience.desc.trim() || null,
+    sortOrder: experience.sortOrder ?? fallbackSortOrder,
+  }
+}
+
+function formatAdminDate(value: string | null | undefined) {
+  if (!value) return ''
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+
+  return new Intl.DateTimeFormat('pt-BR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(date)
+}
+
+function mapMessageToItem(message: ContactMessageAdmin): Message {
+  return {
+    id: message.id,
+    name: message.senderName,
+    email: message.senderEmail,
+    msg: message.body,
+    date: formatAdminDate(message.createdAt),
+    read: message.isRead,
+    createdAt: message.createdAt,
+  }
+}
+
 function hasValidManagementSelection(user: AdminUserInfo | null) {
   if (!user) return false
 
@@ -373,9 +489,34 @@ function hasValidManagementSelection(user: AdminUserInfo | null) {
   return true
 }
 
+function shouldShowPortfolioSetup(user: AdminUserInfo | null) {
+  if (!user) return false
+  if (user.hasPortfolio === false) return true
+  if (user.hasPortfolio === true) return false
+  if (hasValidManagementSelection(user)) return false
+
+  const managementIdsCount = Array.isArray(user.managementsId) ? user.managementsId.length : 0
+  const managementListCount = Array.isArray(user.managementsList) ? user.managementsList.length : 0
+
+  return managementIdsCount === 0 && managementListCount === 0
+}
+
 function getAdminDisplayName(user: AdminUserInfo | null) {
   if (!user) return 'Administrador'
   return user.fullName || [user.name, user.lastName].filter(Boolean).join(' ').trim() || user.email || 'Administrador'
+}
+
+function getEmptyLoadedSections() {
+  return {
+    dashboard: false,
+    projects: false,
+    skills: false,
+    experiences: false,
+    messages: false,
+    visitors: false,
+    about: false,
+    links: false,
+  }
 }
 
 function mapLinkToItem(link: SocialLinkAdmin): LinkItem {
@@ -394,6 +535,19 @@ function withProtocol(url: string) {
   if (!url) return '#'
   if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('mailto:')) return url
   return `https://${url}`
+}
+
+function normalizePortfolioUrl(value: string) {
+  return value.trim()
+}
+
+function isValidPortfolioUrl(portfolioUrl: string) {
+  try {
+    const parsed = new URL(portfolioUrl)
+    return (parsed.protocol === 'https:' || parsed.protocol === 'http:') && !!parsed.hostname
+  } catch {
+    return false
+  }
 }
 
 function Icon({ name, size = 16, color = 'currentColor' }: { name: IconName; size?: number; color?: string }) {
@@ -632,23 +786,26 @@ function ButtonPrimary({
   onClick,
   type = 'button',
   small = false,
+  disabled = false,
 }: {
   children: ReactNode
   icon?: IconName
   onClick?: () => void
   type?: 'button' | 'submit'
   small?: boolean
+  disabled?: boolean
 }) {
   return (
     <button
       type={type}
       onClick={onClick}
+      disabled={disabled}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
         gap: 8,
         border: 'none',
-        background: 'var(--green)',
+        background: disabled ? 'rgba(130, 140, 160, 0.28)' : 'var(--green)',
         color: 'var(--bg)',
         padding: small ? '9px 12px' : '12px 16px',
         fontFamily: 'var(--font-mono)',
@@ -656,6 +813,8 @@ function ButtonPrimary({
         letterSpacing: '0.08em',
         textTransform: 'uppercase',
         clipPath: 'polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px))',
+        opacity: disabled ? 0.6 : 1,
+        cursor: disabled ? 'not-allowed' : 'pointer',
       }}
     >
       {icon ? <Icon name={icon} size={14} color="var(--bg)" /> : null}
@@ -1247,6 +1406,199 @@ function LoginScreen({ onLogin }: { onLogin: (session: AdminAuthSession) => void
   )
 }
 
+function PortfolioSetupScreen({
+  currentUser,
+  onCreate,
+}: {
+  currentUser: AdminUserInfo | null
+  onCreate: (payload: { name: string; portfolioUrl: string }) => Promise<void>
+}) {
+  const suggestedName = getAdminDisplayName(currentUser)
+  const [name, setName] = useState(suggestedName === 'Administrador' ? '' : suggestedName)
+  const [portfolioUrl, setPortfolioUrl] = useState(() => getPortfolioUrl())
+  const [urlState, setUrlState] = useState<PortfolioSetupUrlCheck | null>(null)
+  const [isCheckingUrl, setIsCheckingUrl] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    const normalizedUrl = normalizePortfolioUrl(portfolioUrl)
+
+    if (!normalizedUrl) {
+      setUrlState(null)
+      setIsCheckingUrl(false)
+      return
+    }
+
+    if (!isValidPortfolioUrl(normalizedUrl)) {
+      setUrlState({
+        available: false,
+        message: 'Informe uma URL valida com http:// ou https://.',
+      })
+      setIsCheckingUrl(false)
+      return
+    }
+
+    setIsCheckingUrl(true)
+    const timeoutId = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const result = await onCheckUrl(normalizedUrl)
+          setUrlState(result)
+        } catch (urlError) {
+          setUrlState({
+            available: false,
+            message: urlError instanceof Error ? urlError.message : 'Nao foi possivel validar a URL agora.',
+          })
+        } finally {
+          setIsCheckingUrl(false)
+        }
+      })()
+    }, 400)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+      setIsCheckingUrl(false)
+    }
+
+    async function onCheckUrl(nextUrl: string) {
+      const token = getStoredAdminSession()?.token
+      if (!token) throw new Error('Sessao nao encontrada para validar a URL.')
+      return checkPortfolioSetupUrl(token, nextUrl)
+    }
+  }, [portfolioUrl])
+
+  const normalizedUrl = normalizePortfolioUrl(portfolioUrl)
+  const canSubmit =
+    name.trim().length >= 2 &&
+    isValidPortfolioUrl(normalizedUrl) &&
+    !!urlState?.available &&
+    !isCheckingUrl &&
+    !isSubmitting
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (!name.trim()) {
+      setError('Informe o nome de exibicao do portfolio.')
+      return
+    }
+
+    if (!isValidPortfolioUrl(normalizedUrl)) {
+      setError('Informe uma URL valida antes de continuar.')
+      return
+    }
+
+    if (!urlState?.available) {
+      setError(urlState?.message || 'Escolha uma URL disponivel para continuar.')
+      return
+    }
+
+    try {
+      setIsSubmitting(true)
+      setError('')
+      await onCreate({ name: name.trim(), portfolioUrl: normalizedUrl })
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Nao foi possivel criar o portfolio.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <div
+      className="admin-page"
+      style={{
+        display: 'grid',
+        placeItems: 'center',
+        minHeight: '100vh',
+        padding: 16,
+      }}
+    >
+      <style>{adminStyles}</style>
+      <PanelCard
+        accent="linear-gradient(to right, var(--green), var(--cyan))"
+        style={{ width: 'min(100%, 680px)', padding: 32 }}
+      >
+        <div style={sectionEyebrowStyle}>Onboarding do portfolio</div>
+        <h1 style={{ fontSize: 34, fontWeight: 700, letterSpacing: '-0.03em', marginTop: 12 }}>Crie seu portfolio</h1>
+        <p style={{ marginTop: 10, fontSize: 15, color: 'var(--text-muted)', lineHeight: 1.7 }}>
+          Seu usuario autenticou com sucesso, mas ainda nao possui um portfolio criado. Antes de acessar o painel,
+          precisamos configurar o nome publico e a URL principal da sua pagina.
+        </p>
+
+        <div
+          style={{
+            marginTop: 22,
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: 12,
+          }}
+        >
+          <PanelCard style={{ padding: 18 }}>
+            <div style={sectionEyebrowStyle}>Usuario</div>
+            <div style={{ marginTop: 10, fontSize: 15, fontWeight: 600 }}>{getAdminDisplayName(currentUser)}</div>
+            <div style={{ marginTop: 6, fontSize: 13, color: 'var(--text-muted)' }}>{currentUser?.email}</div>
+          </PanelCard>
+          <PanelCard style={{ padding: 18 }}>
+            <div style={sectionEyebrowStyle}>Status</div>
+            <div style={{ marginTop: 10 }}><TagPill label="portfolio pendente" color="yellow" /></div>
+            <div style={{ marginTop: 8, fontSize: 13, color: 'var(--text-muted)' }}>Configure agora para liberar o admin.</div>
+          </PanelCard>
+          <PanelCard style={{ padding: 18 }}>
+            <div style={sectionEyebrowStyle}>URL do portfolio</div>
+            <div style={{ marginTop: 10, fontSize: 14, color: 'var(--text)', wordBreak: 'break-word' }}>
+              {normalizedUrl || 'https://seu-dominio.com'}
+            </div>
+            <div style={{ marginTop: 8, fontSize: 13, color: 'var(--text-muted)' }}>Essa URL sera usada pelo site publico para resolver seu portfolio.</div>
+          </PanelCard>
+        </div>
+
+        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 28 }}>
+          <TextField
+            label="Nome do portfolio"
+            value={name}
+            onChange={(value) => {
+              setName(value)
+              setError('')
+            }}
+            placeholder="Ex: Kaio Ferreira"
+          />
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <TextField
+              label="URL publica do portfolio"
+              value={portfolioUrl}
+              onChange={(value) => {
+                setPortfolioUrl(normalizePortfolioUrl(value))
+                setError('')
+              }}
+              placeholder="Ex: https://kaioferreira.com"
+            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              {isCheckingUrl ? <TagPill label="validando url" color="cyan" /> : null}
+              {!isCheckingUrl && urlState?.available ? <TagPill label="url disponivel" color="green" /> : null}
+              {!isCheckingUrl && urlState && !urlState.available ? <TagPill label="url indisponivel" color="red" /> : null}
+              <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                {urlState?.message || 'Use a URL completa com protocolo, por exemplo https://kaioferreira.com.'}
+              </span>
+            </div>
+          </div>
+
+          {error ? <div style={{ color: 'oklch(65% 0.22 25)', fontSize: 13 }}>{error}</div> : null}
+
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', marginTop: 8 }}>
+            <span style={{ ...sectionEyebrowStyle, color: 'var(--cyan)' }}>Setup inicial obrigatorio</span>
+            <ButtonPrimary type="submit" disabled={!canSubmit}>
+              {isSubmitting ? 'criando portfolio...' : 'Criar portfolio'}
+            </ButtonPrimary>
+          </div>
+        </form>
+      </PanelCard>
+    </div>
+  )
+}
+
 function Sidebar({
   active,
   currentUser,
@@ -1318,34 +1670,35 @@ function Sidebar({
 }
 
 function Dashboard({
-  projects,
-  skills,
-  messages,
-  visitors,
+  dashboard,
+  visitorStats,
   onNav,
 }: {
-  projects: Project[]
-  skills: Skill[]
-  messages: Message[]
-  visitors: Visitor[]
+  dashboard: DashboardSummary | null
+  visitorStats: VisitorStatsAdmin | null
   onNav: (section: AdminSection) => void
 }) {
-  const unread = messages.filter((message) => !message.read).length
-  const chartData = [38, 52, 45, 61, 58, 72, 68, 85, 79, 91, 87, 94]
-  const maxChart = Math.max(...chartData)
-  const featuredProjects = projects.filter((project) => project.featured).slice(0, 3)
-  const recentMessages = messages.slice(0, 3)
-  const liveVisitors = visitors.slice(0, 5)
+  const recentMessages = dashboard?.recentMessages.map(mapMessageToItem) || []
+  const featuredProjects = dashboard?.featuredProjects.map(mapProjectToItem) || []
+  const chartData = visitorStats?.monthlyChart.map((item) => item.count) || []
+  const maxChart = Math.max(...chartData, 1)
+  const topPages = visitorStats?.topPages.slice(0, 5) || []
 
   return (
     <div>
       <SectionTitle num="00 /" title="Dashboard" />
 
       <div className="admin-grid-4">
-        <MetricCard label="Projetos" value={projects.length} sub={`${projects.filter((project) => project.status === 'published').length} publicados`} icon="projects" />
-        <MetricCard label="Skills" value={skills.length} sub="mapeadas no painel" icon="skills" color="var(--cyan)" />
-        <MetricCard label="Mensagens" value={messages.length} sub={`${unread} nao lidas`} icon="messages" color="oklch(78% 0.18 90)" />
-        <MetricCard label="Visitantes" value="1.2k" sub="+18% em relacao ao mes anterior" icon="visitors" color="var(--cyan)" />
+        <MetricCard label="Projetos" value={dashboard?.publishedProjectsCount ?? 0} sub="publicados" icon="projects" />
+        <MetricCard label="Skills" value={dashboard?.skillsCount ?? 0} sub="mapeadas no painel" icon="skills" color="var(--cyan)" />
+        <MetricCard label="Mensagens" value={dashboard?.unreadMessagesCount ?? 0} sub="nao lidas" icon="messages" color="oklch(78% 0.18 90)" />
+        <MetricCard
+          label="Visitantes"
+          value={dashboard?.visitorsThisMonth ?? 0}
+          sub={`${dashboard?.visitorGrowthPercent ?? 0}% em relacao ao mes anterior`}
+          icon="visitors"
+          color="var(--cyan)"
+        />
       </div>
 
       <div className="admin-grid-2" style={{ marginTop: 24 }}>
@@ -1355,10 +1708,10 @@ function Dashboard({
               <div style={sectionEyebrowStyle}>Visitantes por mes</div>
               <h3 style={{ fontSize: 20, marginTop: 8 }}>Tendencia de acesso</h3>
             </div>
-            <TagPill label="ano atual" color="cyan" />
+            <TagPill label={visitorStats?.topCountry || 'sem dados'} color="cyan" />
           </div>
           <div style={{ display: 'flex', alignItems: 'end', gap: 8, height: 220 }}>
-            {chartData.map((value, index) => (
+            {chartData.length ? chartData.map((value, index) => (
               <div key={`${value}-${index}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'end', alignItems: 'center', gap: 10 }}>
                 <div
                   style={{
@@ -1371,9 +1724,11 @@ function Dashboard({
                     border: '1px solid var(--border)',
                   }}
                 />
-                <span style={{ ...sectionEyebrowStyle, color: index === chartData.length - 1 ? 'var(--green)' : 'var(--text-dim)' }}>{index + 1}</span>
+                <span style={{ ...sectionEyebrowStyle, color: index === chartData.length - 1 ? 'var(--green)' : 'var(--text-dim)' }}>
+                  {visitorStats?.monthlyChart[index]?.month.slice(5) || index + 1}
+                </span>
               </div>
-            ))}
+            )) : <div style={{ color: 'var(--text-muted)' }}>Nenhum dado mensal disponivel ainda.</div>}
           </div>
         </PanelCard>
 
@@ -1386,7 +1741,7 @@ function Dashboard({
             <ButtonOutline small onClick={() => onNav('messages')}>ver todas</ButtonOutline>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {recentMessages.map((message) => (
+            {recentMessages.length ? recentMessages.map((message) => (
               <div key={message.id} style={{ border: '1px solid var(--border)', padding: 16, background: 'rgba(255,255,255,0.02)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                   <strong style={{ fontSize: 15 }}>{message.name}</strong>
@@ -1395,7 +1750,7 @@ function Dashboard({
                 <div style={{ marginTop: 8, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>{message.email}</div>
                 <p style={{ marginTop: 10, fontSize: 13, lineHeight: 1.7, color: 'var(--text-muted)' }}>{message.msg}</p>
               </div>
-            ))}
+            )) : <div style={{ color: 'var(--text-muted)' }}>Nenhuma mensagem recente encontrada.</div>}
           </div>
         </PanelCard>
       </div>
@@ -1405,31 +1760,27 @@ function Dashboard({
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span className="admin-status-online" />
-              <span style={sectionEyebrowStyle}>Visitantes ao vivo</span>
+              <span style={sectionEyebrowStyle}>Top paginas</span>
             </div>
             <ButtonOutline small onClick={() => onNav('visitors')}>detalhes</ButtonOutline>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {liveVisitors.map((visitor) => (
-              <div key={visitor.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
+            {topPages.length ? topPages.map((item) => (
+              <div key={item.page} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <Icon name="globe" size={14} color="var(--text-dim)" />
                   <div>
-                    <div style={{ fontSize: 14 }}>{visitor.city}, {visitor.country}</div>
-                    <div style={{ ...sectionEyebrowStyle, marginTop: 4 }}>{visitor.page}</div>
+                    <div style={{ fontSize: 14 }}>{item.page}</div>
+                    <div style={{ ...sectionEyebrowStyle, marginTop: 4 }}>pagina acompanhada</div>
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: visitor.time === 'Agora' ? 'var(--green)' : 'var(--text-muted)' }}>
-                  <Icon
-                    name={visitor.device === 'Desktop' ? 'monitor' : visitor.device === 'Mobile' ? 'smartphone' : 'tablet'}
-                    size={14}
-                    color="currentColor"
-                  />
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{visitor.time}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--green)' }}>
+                  <Icon name="trending" size={14} color="currentColor" />
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{item.count} acessos</span>
                 </div>
               </div>
-            ))}
+            )) : <div style={{ color: 'var(--text-muted)' }}>Nenhuma pagina rastreada ainda.</div>}
           </div>
         </PanelCard>
 
@@ -1442,7 +1793,7 @@ function Dashboard({
             <ButtonOutline small onClick={() => onNav('projects')}>gerenciar</ButtonOutline>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {featuredProjects.map((project) => (
+            {featuredProjects.length ? featuredProjects.map((project) => (
               <div key={project.id} style={{ border: '1px solid var(--border)', padding: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                   <strong>{project.title}</strong>
@@ -1455,7 +1806,7 @@ function Dashboard({
                   ))}
                 </div>
               </div>
-            ))}
+            )) : <div style={{ color: 'var(--text-muted)' }}>Nenhum projeto em destaque ainda.</div>}
           </div>
         </PanelCard>
       </div>
@@ -1465,16 +1816,18 @@ function Dashboard({
 
 function ProjectsList({
   projects,
-  setProjects,
   onCreate,
   onEdit,
+  onDelete,
 }: {
   projects: Project[]
-  setProjects: React.Dispatch<React.SetStateAction<Project[]>>
   onCreate: () => void
   onEdit: (project: Project) => void
+  onDelete: (id: number) => Promise<void>
 }) {
   const [query, setQuery] = useState('')
+  const [busyId, setBusyId] = useState<number | null>(null)
+  const [error, setError] = useState('')
 
   const filteredProjects = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -1493,6 +1846,7 @@ function ProjectsList({
       />
 
       <PanelCard>
+        {error ? <div style={{ color: 'oklch(65% 0.22 25)', fontSize: 13, marginBottom: 16 }}>{error}</div> : null}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
           <div style={{ position: 'relative', flex: '1 1 280px' }}>
             <span style={{ position: 'absolute', left: 14, top: 13, color: 'var(--text-dim)' }}>
@@ -1562,9 +1916,22 @@ function ProjectsList({
                         icon="trash"
                         label="Remover projeto"
                         color="oklch(65% 0.22 25)"
-                        onClick={() => setProjects((current) => current.filter((item) => item.id !== project.id))}
+                        onClick={() =>
+                          void (async () => {
+                            try {
+                              setBusyId(project.id)
+                              setError('')
+                              await onDelete(project.id)
+                            } catch (deleteError) {
+                              setError(deleteError instanceof Error ? deleteError.message : 'Nao foi possivel remover o projeto.')
+                            } finally {
+                              setBusyId(null)
+                            }
+                          })()
+                        }
                       />
                     </div>
+                    {busyId === project.id ? <div style={{ marginTop: 8, ...sectionEyebrowStyle }}>sincronizando...</div> : null}
                   </td>
                 </tr>
               ))}
@@ -1583,7 +1950,7 @@ function ProjectForm({
 }: {
   project: Project | null
   onBack: () => void
-  onSave: (project: Project) => void
+  onSave: (project: Project) => Promise<void>
 }) {
   const isNew = project === null
   const [form, setForm] = useState<Project>(
@@ -1593,16 +1960,28 @@ function ProjectForm({
       desc: '',
       tags: [],
       repo: '',
+      liveUrl: '',
       featured: false,
       status: 'draft',
       thumb: null,
     },
   )
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    onSave(form)
-    onBack()
+
+    try {
+      setSaving(true)
+      setError('')
+      await onSave(form)
+      onBack()
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Nao foi possivel salvar o projeto.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -1637,6 +2016,7 @@ function ProjectForm({
             <TextField label="Titulo" value={form.title} onChange={(value) => setForm({ ...form, title: value })} placeholder="Nome do projeto" />
             <TextAreaField label="Descricao" value={form.desc} onChange={(value) => setForm({ ...form, desc: value })} rows={7} />
             <TextField label="Repositorio" value={form.repo} onChange={(value) => setForm({ ...form, repo: value })} placeholder="github.com/usuario/repo" />
+            <TextField label="URL ao vivo" value={form.liveUrl} onChange={(value) => setForm({ ...form, liveUrl: value })} placeholder="https://site.com/projeto" />
             <TagInput label="Tags" tags={form.tags} onChange={(tags) => setForm({ ...form, tags })} />
           </div>
         </PanelCard>
@@ -1703,12 +2083,18 @@ function ProjectForm({
                   ? form.tags.map((tag) => <TagPill key={tag} label={tag} color="cyan" />)
                   : <TagPill label="Sem tags" color="yellow" />}
               </div>
+              {form.liveUrl ? (
+                <a href={withProtocol(form.liveUrl)} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: 16, color: 'var(--cyan)', textDecoration: 'none', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+                  abrir projeto
+                </a>
+              ) : null}
             </div>
           </PanelCard>
 
+          {error ? <div style={{ color: 'oklch(65% 0.22 25)', fontSize: 13 }}>{error}</div> : null}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
             <ButtonOutline onClick={onBack}>cancelar</ButtonOutline>
-            <ButtonPrimary type="submit">{isNew ? 'criar projeto' : 'salvar projeto'}</ButtonPrimary>
+            <ButtonPrimary type="submit">{saving ? 'salvando...' : isNew ? 'criar projeto' : 'salvar projeto'}</ButtonPrimary>
           </div>
         </div>
       </form>
@@ -1718,14 +2104,14 @@ function ProjectForm({
 
 function SkillsList({
   skills,
-  setSkills,
   onCreate,
   onEdit,
+  onDelete,
 }: {
   skills: Skill[]
-  setSkills: React.Dispatch<React.SetStateAction<Skill[]>>
   onCreate: () => void
   onEdit: (skill: Skill) => void
+  onDelete: (id: number) => Promise<void>
 }) {
   const groups = useMemo(() => {
     return skills.reduce<Record<string, Skill[]>>((acc, skill) => {
@@ -1734,6 +2120,8 @@ function SkillsList({
       return acc
     }, {})
   }, [skills])
+  const [busyId, setBusyId] = useState<number | null>(null)
+  const [error, setError] = useState('')
 
   return (
     <div>
@@ -1743,6 +2131,7 @@ function SkillsList({
         action={<ButtonPrimary icon="plus" onClick={onCreate}>nova skill</ButtonPrimary>}
       />
 
+      {error ? <div style={{ color: 'oklch(65% 0.22 25)', fontSize: 13, marginBottom: 16 }}>{error}</div> : null}
       <div className="admin-grid-3">
         {Object.entries(groups).map(([category, items]) => (
           <PanelCard key={category}>
@@ -1758,7 +2147,19 @@ function SkillsList({
                         icon="trash"
                         label="Remover skill"
                         color="oklch(65% 0.22 25)"
-                        onClick={() => setSkills((current) => current.filter((item) => item.id !== skill.id))}
+                        onClick={() =>
+                          void (async () => {
+                            try {
+                              setBusyId(skill.id)
+                              setError('')
+                              await onDelete(skill.id)
+                            } catch (deleteError) {
+                              setError(deleteError instanceof Error ? deleteError.message : 'Nao foi possivel remover a skill.')
+                            } finally {
+                              setBusyId(null)
+                            }
+                          })()
+                        }
                       />
                     </div>
                   </div>
@@ -1766,7 +2167,9 @@ function SkillsList({
                     <div style={{ height: 8, background: 'var(--bg2)', border: '1px solid var(--border)' }}>
                       <div style={{ width: `${skill.level}%`, height: '100%', background: 'linear-gradient(to right, var(--green), var(--cyan))' }} />
                     </div>
-                    <div style={{ marginTop: 8, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>{skill.level}%</div>
+                    <div style={{ marginTop: 8, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>
+                      {skill.level}% {busyId === skill.id ? '· sincronizando...' : ''}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1785,15 +2188,26 @@ function SkillForm({
 }: {
   skill: Skill | null
   onBack: () => void
-  onSave: (skill: Skill) => void
+  onSave: (skill: Skill) => Promise<void>
 }) {
   const isNew = skill === null
   const [form, setForm] = useState<Skill>(skill ?? { id: 0, name: '', category: '', level: 50 })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    onSave({ ...form, level: Number(form.level) })
-    onBack()
+
+    try {
+      setSaving(true)
+      setError('')
+      await onSave({ ...form, level: Number(form.level) })
+      onBack()
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Nao foi possivel salvar a skill.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -1851,9 +2265,10 @@ function SkillForm({
               </div>
             </div>
           </PanelCard>
+          {error ? <div style={{ color: 'oklch(65% 0.22 25)', fontSize: 13 }}>{error}</div> : null}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
             <ButtonOutline onClick={onBack}>cancelar</ButtonOutline>
-            <ButtonPrimary type="submit">{isNew ? 'criar skill' : 'salvar skill'}</ButtonPrimary>
+            <ButtonPrimary type="submit">{saving ? 'salvando...' : isNew ? 'criar skill' : 'salvar skill'}</ButtonPrimary>
           </div>
         </div>
       </form>
@@ -1863,17 +2278,24 @@ function SkillForm({
 
 function ExperiencesSection({
   experiences,
-  setExperiences,
+  onSaveExperience,
+  onDeleteExperience,
+  onReorderExperiences,
 }: {
   experiences: Experience[]
-  setExperiences: React.Dispatch<React.SetStateAction<Experience[]>>
+  onSaveExperience: (experience: Experience) => Promise<void>
+  onDeleteExperience: (id: number) => Promise<void>
+  onReorderExperiences: (items: ReorderItemPayload[]) => Promise<void>
 }) {
   const [editing, setEditing] = useState<Experience | null>(null)
-  const [form, setForm] = useState<Experience>({ id: 0, role: '', company: '', period: '', desc: '' })
+  const [form, setForm] = useState<Experience>({ id: 0, role: '', company: '', period: '', desc: '', sortOrder: 1 })
+  const [busyId, setBusyId] = useState<number | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
   function startCreate() {
     setEditing(null)
-    setForm({ id: 0, role: '', company: '', period: '', desc: '' })
+    setForm({ id: 0, role: '', company: '', period: '', desc: '', sortOrder: experiences.length + 1 })
   }
 
   function startEdit(experience: Experience) {
@@ -1881,14 +2303,52 @@ function ExperiencesSection({
     setForm(experience)
   }
 
-  function save() {
+  async function save() {
     if (!form.role.trim()) return
-    if (editing) {
-      setExperiences((current) => current.map((item) => (item.id === editing.id ? form : item)))
-    } else {
-      setExperiences((current) => [...current, { ...form, id: getNextId(current) }])
+
+    try {
+      setSaving(true)
+      setError('')
+      await onSaveExperience(form)
+      startCreate()
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Nao foi possivel salvar a experiencia.')
+    } finally {
+      setSaving(false)
     }
-    startCreate()
+  }
+
+  async function remove(id: number) {
+    try {
+      setBusyId(id)
+      setError('')
+      await onDeleteExperience(id)
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Nao foi possivel remover a experiencia.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function move(id: number, direction: -1 | 1) {
+    const ordered = [...experiences].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+    const index = ordered.findIndex((item) => item.id === id)
+    const nextIndex = index + direction
+
+    if (index < 0 || nextIndex < 0 || nextIndex >= ordered.length) return
+
+    const next = [...ordered]
+    ;[next[index], next[nextIndex]] = [next[nextIndex], next[index]]
+
+    try {
+      setBusyId(id)
+      setError('')
+      await onReorderExperiences(next.map((item, idx) => ({ id: item.id, sortOrder: idx + 1 })))
+    } catch (reorderError) {
+      setError(reorderError instanceof Error ? reorderError.message : 'Nao foi possivel reordenar as experiencias.')
+    } finally {
+      setBusyId(null)
+    }
   }
 
   return (
@@ -1899,6 +2359,7 @@ function ExperiencesSection({
         action={<ButtonPrimary icon="plus" onClick={startCreate}>nova experiencia</ButtonPrimary>}
       />
 
+      {error ? <div style={{ color: 'oklch(65% 0.22 25)', fontSize: 13, marginBottom: 16 }}>{error}</div> : null}
       <div className="admin-grid-2">
         <PanelCard>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -1909,17 +2370,20 @@ function ExperiencesSection({
                     <div style={{ fontWeight: 600 }}>{experience.role}</div>
                     <div style={{ marginTop: 6, fontSize: 13, color: 'var(--text-muted)' }}>{experience.company} · {experience.period}</div>
                   </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <IconButton icon="edit" label="Editar experiencia" onClick={() => startEdit(experience)} />
+                    <ButtonOutline small onClick={() => void move(experience.id, -1)}>subir</ButtonOutline>
+                    <ButtonOutline small onClick={() => void move(experience.id, 1)}>descer</ButtonOutline>
                     <IconButton
                       icon="trash"
                       label="Remover experiencia"
                       color="oklch(65% 0.22 25)"
-                      onClick={() => setExperiences((current) => current.filter((item) => item.id !== experience.id))}
+                      onClick={() => void remove(experience.id)}
                     />
                   </div>
                 </div>
                 <p style={{ marginTop: 12, color: 'var(--text-muted)', lineHeight: 1.7 }}>{experience.desc}</p>
+                {busyId === experience.id ? <div style={{ marginTop: 8, ...sectionEyebrowStyle }}>sincronizando...</div> : null}
               </div>
             ))}
           </div>
@@ -1934,7 +2398,7 @@ function ExperiencesSection({
             <TextAreaField label="Descricao" value={form.desc} onChange={(value) => setForm({ ...form, desc: value })} rows={5} />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
               <ButtonOutline onClick={startCreate}>limpar</ButtonOutline>
-              <ButtonPrimary onClick={save}>{editing ? 'atualizar' : 'salvar'}</ButtonPrimary>
+              <ButtonPrimary onClick={() => void save()}>{saving ? 'salvando...' : editing ? 'atualizar' : 'salvar'}</ButtonPrimary>
             </div>
           </div>
         </PanelCard>
@@ -1945,24 +2409,55 @@ function ExperiencesSection({
 
 function MessagesSection({
   messages,
-  setMessages,
+  onOpenMessage,
+  onDeleteMessage,
 }: {
   messages: Message[]
-  setMessages: React.Dispatch<React.SetStateAction<Message[]>>
+  onOpenMessage: (id: number) => Promise<void>
+  onDeleteMessage: (id: number) => Promise<void>
 }) {
   const [selectedId, setSelectedId] = useState<number | null>(messages[0]?.id ?? null)
+  const [busyId, setBusyId] = useState<number | null>(null)
+  const [error, setError] = useState('')
 
   const selected = messages.find((message) => message.id === selectedId) ?? null
 
-  function openMessage(id: number) {
+  useEffect(() => {
+    if (selectedId && messages.some((message) => message.id === selectedId)) return
+    setSelectedId(messages[0]?.id ?? null)
+  }, [messages, selectedId])
+
+  async function openMessage(id: number) {
     setSelectedId(id)
-    setMessages((current) => current.map((message) => (message.id === id ? { ...message, read: true } : message)))
+
+    try {
+      setBusyId(id)
+      setError('')
+      await onOpenMessage(id)
+    } catch (openError) {
+      setError(openError instanceof Error ? openError.message : 'Nao foi possivel abrir a mensagem.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function removeMessage(id: number) {
+    try {
+      setBusyId(id)
+      setError('')
+      await onDeleteMessage(id)
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Nao foi possivel remover a mensagem.')
+    } finally {
+      setBusyId(null)
+    }
   }
 
   return (
     <div>
       <SectionTitle num="04 /" title="Mensagens" />
 
+      {error ? <div style={{ color: 'oklch(65% 0.22 25)', fontSize: 13, marginBottom: 16 }}>{error}</div> : null}
       <div className="admin-grid-2">
         <PanelCard>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -1981,7 +2476,10 @@ function MessagesSection({
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                   <strong>{message.name}</strong>
-                  {message.read ? <TagPill label="Lida" color="cyan" /> : <TagPill label="Nova" color="green" />}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    {message.read ? <TagPill label="Lida" color="cyan" /> : <TagPill label="Nova" color="green" />}
+                    {busyId === message.id ? <span style={sectionEyebrowStyle}>...</span> : null}
+                  </span>
                 </div>
                 <div style={{ marginTop: 8, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>{message.email}</div>
                 <div style={{ marginTop: 10, fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
@@ -2009,6 +2507,9 @@ function MessagesSection({
                 </div>
                 <div style={{ ...sectionEyebrowStyle }}>{selected.date}</div>
                 <p style={{ fontSize: 15, color: 'var(--text-muted)', lineHeight: 1.8 }}>{selected.msg}</p>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <ButtonOutline onClick={() => void removeMessage(selected.id)}>{busyId === selected.id ? 'removendo...' : 'remover mensagem'}</ButtonOutline>
+                </div>
               </div>
             </>
           ) : (
@@ -2020,75 +2521,60 @@ function MessagesSection({
   )
 }
 
-function VisitorsSection({ visitors }: { visitors: Visitor[] }) {
-  const topPages = [
-    { page: '/', views: 624 },
-    { page: '/projects', views: 389 },
-    { page: '/about', views: 214 },
-  ]
+function VisitorsSection({ visitorStats }: { visitorStats: VisitorStatsAdmin | null }) {
+  const chartData = visitorStats?.monthlyChart || []
+  const maxChart = Math.max(...chartData.map((item) => item.count), 1)
 
   return (
     <div>
       <SectionTitle num="05 /" title="Visitantes" />
 
       <div className="admin-grid-4">
-        <MetricCard label="Visitantes ativos" value={visitors.length} sub="feed em tempo real" icon="visitors" />
-        <MetricCard label="Taxa de retorno" value="32%" sub="visitantes recorrentes" icon="trending" color="oklch(78% 0.18 90)" />
-        <MetricCard label="Top origem" value="Brasil" sub="maior volume atual" icon="globe" color="var(--cyan)" />
-        <MetricCard label="Tempo medio" value="08m" sub="permanencia por sessao" icon="dashboard" color="var(--cyan)" />
+        <MetricCard label="Visitantes no mes" value={visitorStats?.totalThisMonth ?? 0} sub={`${visitorStats?.totalLastMonth ?? 0} no mes anterior`} icon="visitors" />
+        <MetricCard label="Crescimento" value={`${visitorStats?.growthPercent ?? 0}%`} sub="variacao mensal" icon="trending" color="oklch(78% 0.18 90)" />
+        <MetricCard label="Top origem" value={visitorStats?.topCountry || 'Sem dados'} sub="maior volume atual" icon="globe" color="var(--cyan)" />
+        <MetricCard label="Sessoes unicas" value={visitorStats?.uniqueSessionsThisMonth ?? 0} sub="usuarios distintos no mes" icon="dashboard" color="var(--cyan)" />
       </div>
 
       <div className="admin-grid-2" style={{ marginTop: 24 }}>
         <PanelCard>
           <div style={sectionEyebrowStyle}>Top paginas</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 18 }}>
-            {topPages.map((item) => (
+            {visitorStats?.topPages.length ? visitorStats.topPages.map((item) => (
               <div key={item.page} style={{ border: '1px solid var(--border)', padding: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                   <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--cyan)' }}>{item.page}</span>
-                  <TagPill label={`${item.views} views`} color="green" />
+                  <TagPill label={`${item.count} views`} color="green" />
                 </div>
               </div>
-            ))}
+            )) : <div style={{ color: 'var(--text-muted)' }}>Nenhuma pagina rastreada ainda.</div>}
           </div>
         </PanelCard>
 
         <PanelCard accent="linear-gradient(to right, var(--green), transparent)">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
             <span className="admin-status-online" />
-            <span style={sectionEyebrowStyle}>Feed ao vivo</span>
+            <span style={sectionEyebrowStyle}>Volume mensal</span>
           </div>
-          <div className="admin-table-wrap">
-            <table className="admin-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  {['Localizacao', 'Pagina', 'Dispositivo', 'Tempo'].map((header) => (
-                    <th key={header} style={{ textAlign: 'left', paddingBottom: 12, borderBottom: '1px solid var(--border)', ...sectionEyebrowStyle }}>
-                      {header}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {visitors.map((visitor) => (
-                  <tr key={visitor.id}>
-                    <td style={{ padding: '14px 12px 14px 0', borderBottom: '1px solid var(--border)' }}>{visitor.city}, {visitor.country}</td>
-                    <td style={{ padding: '14px 12px 14px 0', borderBottom: '1px solid var(--border)', fontFamily: 'var(--font-mono)', color: 'var(--cyan)' }}>{visitor.page}</td>
-                    <td style={{ padding: '14px 12px 14px 0', borderBottom: '1px solid var(--border)' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                        <Icon
-                          name={visitor.device === 'Desktop' ? 'monitor' : visitor.device === 'Mobile' ? 'smartphone' : 'tablet'}
-                          size={14}
-                          color="var(--text-dim)"
-                        />
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>{visitor.device}</span>
-                      </span>
-                    </td>
-                    <td style={{ padding: '14px 0 14px 0', borderBottom: '1px solid var(--border)', color: visitor.time === 'Agora' ? 'var(--green)' : 'var(--text-muted)' }}>{visitor.time}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div style={{ display: 'flex', alignItems: 'end', gap: 8, height: 220 }}>
+            {chartData.length ? chartData.map((item, index) => (
+              <div key={item.month} style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'end', alignItems: 'center', gap: 10 }}>
+                <div
+                  style={{
+                    width: '100%',
+                    height: `${(item.count / maxChart) * 170}px`,
+                    background:
+                      index === chartData.length - 1
+                        ? 'linear-gradient(180deg, var(--green), var(--cyan))'
+                        : 'linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04))',
+                    border: '1px solid var(--border)',
+                  }}
+                />
+                <span style={{ ...sectionEyebrowStyle, color: index === chartData.length - 1 ? 'var(--green)' : 'var(--text-dim)' }}>
+                  {item.month.slice(5)}
+                </span>
+              </div>
+            )) : <div style={{ color: 'var(--text-muted)' }}>Nenhum dado historico disponivel ainda.</div>}
           </div>
         </PanelCard>
       </div>
@@ -2607,15 +3093,28 @@ function LinksSection({
 function SettingsSection({
   settings,
   setSettings,
+  onSaveSettings,
 }: {
   settings: SettingsState
   setSettings: React.Dispatch<React.SetStateAction<SettingsState>>
+  onSaveSettings: () => Promise<void>
 }) {
   const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
-  function save() {
-    setSaved(true)
-    setTimeout(() => setSaved(false), 1800)
+  async function save() {
+    try {
+      setSaving(true)
+      setError('')
+      await onSaveSettings()
+      setSaved(true)
+      setTimeout(() => setSaved(false), 1800)
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Nao foi possivel salvar as configuracoes.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -2629,9 +3128,11 @@ function SettingsSection({
             <TextField label="URL da API" value={settings.apiUrl} onChange={(value) => setSettings({ ...settings, apiUrl: value })} />
             <TextField label="Token" value={settings.token} onChange={(value) => setSettings({ ...settings, token: value })} type="password" />
             <TextField label="Email da conta" value={settings.email} onChange={(value) => setSettings({ ...settings, email: value })} type="email" />
+            <TextField label="Senha atual" value={settings.currentPassword} onChange={(value) => setSettings({ ...settings, currentPassword: value })} type="password" />
             <TextField label="Nova senha" value={settings.newPassword} onChange={(value) => setSettings({ ...settings, newPassword: value })} type="password" />
+            {error ? <div style={{ color: 'oklch(65% 0.22 25)', fontSize: 13 }}>{error}</div> : null}
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <ButtonPrimary onClick={save}>{saved ? 'salvo' : 'salvar configuracoes'}</ButtonPrimary>
+              <ButtonPrimary onClick={() => void save()}>{saving ? 'salvando...' : saved ? 'salvo' : 'salvar configuracoes'}</ButtonPrimary>
             </div>
           </div>
         </PanelCard>
@@ -2658,7 +3159,7 @@ function SettingsSection({
             <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10, color: 'var(--text-muted)', lineHeight: 1.7 }}>
               <span>Este painel foi preparado para rodar na raiz do subdominio de admin.</span>
               <span>No dominio principal, a rota do admin nao fica aberta para acesso publico.</span>
-              <span>PortfolioProfile, ProfileStat e SocialLink ja estao consumindo o backend da sprint 1.</span>
+              <span>As configuracoes agora sincronizam email e troca de senha com o backend quando informado.</span>
             </div>
           </PanelCard>
         </div>
@@ -2676,21 +3177,26 @@ export function AdminPage() {
   const [adminError, setAdminError] = useState('')
   const [dismissedAdminError, setDismissedAdminError] = useState(false)
   const [isBootstrapping, setIsBootstrapping] = useState(false)
+  const [loadedAdminSections, setLoadedAdminSections] = useState(getEmptyLoadedSections)
 
-  const [projects, setProjects] = useState<Project[]>(MOCK_PROJECTS)
-  const [skills, setSkills] = useState<Skill[]>(MOCK_SKILLS)
-  const [experiences, setExperiences] = useState<Experience[]>(MOCK_EXPERIENCES)
-  const [messages, setMessages] = useState<Message[]>(MOCK_MESSAGES)
-  const [visitors] = useState<Visitor[]>(MOCK_VISITORS)
+  const [dashboardData, setDashboardData] = useState<DashboardSummary | null>(null)
+  const [visitorStats, setVisitorStats] = useState<VisitorStatsAdmin | null>(null)
+  const [projects, setProjects] = useState<Project[]>([])
+  const [skills, setSkills] = useState<Skill[]>([])
+  const [experiences, setExperiences] = useState<Experience[]>([])
+  const [messages, setMessages] = useState<Message[]>([])
   const [about, setAbout] = useState<AboutState>(ABOUT_INITIAL_STATE)
   const [profileStats, setProfileStats] = useState<StatItem[]>([])
   const [links, setLinks] = useState<LinkItem[]>([])
   const [settings, setSettings] = useState<SettingsState>(() => ({
     ...SETTINGS_INITIAL_STATE,
     token: getStoredAdminSession()?.token || '',
+    email: getStoredAdminSession()?.user?.email || '',
   }))
 
-  const unreadMessages = messages.filter((message) => !message.read).length
+  const unreadMessages = messages.length
+    ? messages.filter((message) => !message.read).length
+    : (dashboardData?.unreadMessagesCount ?? 0)
   const loggedIn = Boolean(authSession?.token)
   const visibleAdminError = adminError && !dismissedAdminError ? adminError : ''
 
@@ -2707,12 +3213,23 @@ export function AdminPage() {
     if (!authSession?.token) return
 
     void bootstrapAdminSession(authSession.token)
-  }, [authSession?.token, page])
+  }, [authSession?.token])
 
   function handleUnauthorized() {
     clearAdminSession()
     setAuthSession(null)
     setCurrentUser(null)
+    setPage('dashboard')
+    setDashboardData(null)
+    setVisitorStats(null)
+    setProjects([])
+    setSkills([])
+    setExperiences([])
+    setMessages([])
+    setAbout(ABOUT_INITIAL_STATE)
+    setProfileStats([])
+    setLinks([])
+    setLoadedAdminSections(getEmptyLoadedSections())
     setSettings((current) => ({ ...current, token: '' }))
     setAdminError('Sua sessao expirou. Entre novamente.')
   }
@@ -2721,7 +3238,11 @@ export function AdminPage() {
     storeAdminSession(session)
     setAuthSession(session)
     setCurrentUser(session.user || null)
-    setSettings((current) => ({ ...current, token: session.token }))
+    setSettings((current) => ({
+      ...current,
+      token: session.token,
+      email: session.user?.email || current.email,
+    }))
   }
 
   async function bootstrapAdminSession(token: string) {
@@ -2738,15 +3259,23 @@ export function AdminPage() {
 
       persistSession(nextSession)
 
+      if (shouldShowPortfolioSetup(userInfo)) {
+        setAdminError('')
+        setAbout(ABOUT_INITIAL_STATE)
+        setProfileStats([])
+        setLinks([])
+        setLoadedAdminSections(getEmptyLoadedSections())
+        return
+      }
+
       if (!hasValidManagementSelection(userInfo)) {
         setAdminError('Seu usuario autenticou com sucesso, mas ainda nao possui um management selecionado para acessar os endpoints admin do portfolio.')
         setAbout(ABOUT_INITIAL_STATE)
         setProfileStats([])
         setLinks([])
+        setLoadedAdminSections(getEmptyLoadedSections())
         return
       }
-
-      await loadPortfolioData(token)
     } catch (loadError) {
       if (isApiError(loadError) && loadError.status === 401) {
         handleUnauthorized()
@@ -2759,19 +3288,18 @@ export function AdminPage() {
     }
   }
 
-  async function loadPortfolioData(token: string) {
+  async function loadAboutData(token: string) {
     try {
       setAdminError('')
 
-      const [profile, stats, socialLinks] = await Promise.all([
+      const [profile, stats] = await Promise.all([
         getAdminPortfolioProfile(token),
         getAdminProfileStats(token),
-        getAdminSocialLinks(token),
       ])
 
       setAbout(mapProfileToAboutState(profile))
       setProfileStats(stats.map(mapStatToItem))
-      setLinks(socialLinks.map(mapLinkToItem))
+      setLoadedAdminSections((current) => ({ ...current, about: true }))
     } catch (loadError) {
       if (isApiError(loadError) && loadError.status === 401) {
         handleUnauthorized()
@@ -2782,34 +3310,204 @@ export function AdminPage() {
     }
   }
 
+  async function loadDashboardData(token: string) {
+    try {
+      setAdminError('')
+
+      const [dashboard, visitors] = await Promise.all([
+        getAdminDashboard(token),
+        getAdminVisitorStats(token),
+      ])
+
+      setDashboardData(dashboard)
+      setVisitorStats(visitors)
+      setLoadedAdminSections((current) => ({ ...current, dashboard: true, visitors: true }))
+    } catch (loadError) {
+      if (isApiError(loadError) && loadError.status === 401) {
+        handleUnauthorized()
+        return
+      }
+
+      setAdminError(loadError instanceof Error ? loadError.message : 'Nao foi possivel carregar o dashboard.')
+    }
+  }
+
+  async function loadProjectsData(token: string) {
+    try {
+      setAdminError('')
+
+      const nextProjects = await getAdminProjects(token)
+      setProjects(nextProjects.map(mapProjectToItem))
+      setLoadedAdminSections((current) => ({ ...current, projects: true }))
+    } catch (loadError) {
+      if (isApiError(loadError) && loadError.status === 401) {
+        handleUnauthorized()
+        return
+      }
+
+      setAdminError(loadError instanceof Error ? loadError.message : 'Nao foi possivel carregar os projetos.')
+    }
+  }
+
+  async function loadSkillsData(token: string) {
+    try {
+      setAdminError('')
+
+      const nextSkills = await getAdminSkills(token)
+      setSkills(nextSkills.map(mapSkillToItem).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)))
+      setLoadedAdminSections((current) => ({ ...current, skills: true }))
+    } catch (loadError) {
+      if (isApiError(loadError) && loadError.status === 401) {
+        handleUnauthorized()
+        return
+      }
+
+      setAdminError(loadError instanceof Error ? loadError.message : 'Nao foi possivel carregar as skills.')
+    }
+  }
+
+  async function loadExperiencesData(token: string) {
+    try {
+      setAdminError('')
+
+      const nextExperiences = await getAdminExperiences(token)
+      setExperiences(nextExperiences.map(mapExperienceToItem).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)))
+      setLoadedAdminSections((current) => ({ ...current, experiences: true }))
+    } catch (loadError) {
+      if (isApiError(loadError) && loadError.status === 401) {
+        handleUnauthorized()
+        return
+      }
+
+      setAdminError(loadError instanceof Error ? loadError.message : 'Nao foi possivel carregar as experiencias.')
+    }
+  }
+
+  async function loadMessagesData(token: string) {
+    try {
+      setAdminError('')
+
+      const nextMessages = await getAdminMessages(token)
+      setMessages(nextMessages.map(mapMessageToItem))
+      setLoadedAdminSections((current) => ({ ...current, messages: true }))
+    } catch (loadError) {
+      if (isApiError(loadError) && loadError.status === 401) {
+        handleUnauthorized()
+        return
+      }
+
+      setAdminError(loadError instanceof Error ? loadError.message : 'Nao foi possivel carregar as mensagens.')
+    }
+  }
+
+  async function loadVisitorsData(token: string) {
+    try {
+      setAdminError('')
+
+      const stats = await getAdminVisitorStats(token)
+      setVisitorStats(stats)
+      setLoadedAdminSections((current) => ({ ...current, visitors: true }))
+    } catch (loadError) {
+      if (isApiError(loadError) && loadError.status === 401) {
+        handleUnauthorized()
+        return
+      }
+
+      setAdminError(loadError instanceof Error ? loadError.message : 'Nao foi possivel carregar os visitantes.')
+    }
+  }
+
+  async function loadLinksData(token: string) {
+    try {
+      setAdminError('')
+
+      const socialLinks = await getAdminSocialLinks(token)
+      setLinks(socialLinks.map(mapLinkToItem))
+      setLoadedAdminSections((current) => ({ ...current, links: true }))
+    } catch (loadError) {
+      if (isApiError(loadError) && loadError.status === 401) {
+        handleUnauthorized()
+        return
+      }
+
+      setAdminError(loadError instanceof Error ? loadError.message : 'Nao foi possivel carregar os links do backend.')
+    }
+  }
+
+  useEffect(() => {
+    if (!authSession?.token) return
+    if (!currentUser) return
+    if (shouldShowPortfolioSetup(currentUser)) return
+    if (!hasValidManagementSelection(currentUser)) return
+    if (page === 'dashboard' && !loadedAdminSections.dashboard) {
+      void loadDashboardData(authSession.token)
+      return
+    }
+
+    if (page === 'projects' && !loadedAdminSections.projects) {
+      void loadProjectsData(authSession.token)
+      return
+    }
+
+    if (page === 'skills' && !loadedAdminSections.skills) {
+      void loadSkillsData(authSession.token)
+      return
+    }
+
+    if (page === 'experiences' && !loadedAdminSections.experiences) {
+      void loadExperiencesData(authSession.token)
+      return
+    }
+
+    if (page === 'messages' && !loadedAdminSections.messages) {
+      void loadMessagesData(authSession.token)
+      return
+    }
+
+    if (page === 'visitors' && !loadedAdminSections.visitors) {
+      void loadVisitorsData(authSession.token)
+      return
+    }
+
+    if (page === 'about' && !loadedAdminSections.about) {
+      void loadAboutData(authSession.token)
+      return
+    }
+
+    if (page === 'links' && !loadedAdminSections.links) {
+      void loadLinksData(authSession.token)
+    }
+  }, [
+    authSession?.token,
+    currentUser,
+    loadedAdminSections.about,
+    loadedAdminSections.dashboard,
+    loadedAdminSections.experiences,
+    loadedAdminSections.links,
+    loadedAdminSections.messages,
+    loadedAdminSections.projects,
+    loadedAdminSections.skills,
+    loadedAdminSections.visitors,
+    page,
+  ])
+
   function navigate(nextPage: AdminSection) {
     setPage(nextPage)
     setProjectEdit(undefined)
     setSkillEdit(undefined)
   }
 
-  function saveProject(project: Project) {
-    if (!project.id) {
-      setProjects((current) => [...current, { ...project, id: getNextId(current) }])
-      return
-    }
-
-    setProjects((current) => current.map((item) => (item.id === project.id ? project : item)))
-  }
-
-  function saveSkill(skill: Skill) {
-    if (!skill.id) {
-      setSkills((current) => [...current, { ...skill, id: getNextId(current) }])
-      return
-    }
-
-    setSkills((current) => current.map((item) => (item.id === skill.id ? skill : item)))
-  }
-
   function requireToken() {
     const token = authSession?.token
     if (!token) throw new Error('Sessao nao encontrada. Faca login novamente.')
     return token
+  }
+
+  async function createInitialPortfolio(payload: { name: string; portfolioUrl: string }) {
+    const token = requireToken()
+    setLoadedAdminSections(getEmptyLoadedSections())
+    await createPortfolioSetup(token, payload)
+    await bootstrapAdminSession(token)
   }
 
   function requireManagementAccess() {
@@ -2833,10 +3531,145 @@ export function AdminPage() {
     }
   }
 
+  function markSectionsUnloaded(...sections: Array<keyof ReturnType<typeof getEmptyLoadedSections>>) {
+    setLoadedAdminSections((current) => {
+      const next = { ...current }
+
+      sections.forEach((section) => {
+        next[section] = false
+      })
+
+      return next
+    })
+  }
+
+  async function saveProject(project: Project) {
+    await runProtectedAction(async (token) => {
+      const payload = mapProjectToPayload(project)
+
+      if (project.id > 0) await updateAdminProject(token, project.id, payload)
+      else await createAdminProject(token, payload)
+
+      markSectionsUnloaded('projects', 'dashboard')
+      await loadProjectsData(token)
+    })
+  }
+
+  async function removeProject(id: number) {
+    await runProtectedAction(async (token) => {
+      await deleteAdminProject(token, id)
+      markSectionsUnloaded('projects', 'dashboard')
+      await loadProjectsData(token)
+    })
+  }
+
+  async function saveSkill(skill: Skill) {
+    await runProtectedAction(async (token) => {
+      const payload = mapSkillToPayload(skill, skills.length + 1)
+
+      if (skill.id > 0) await updateAdminSkill(token, skill.id, payload)
+      else await createAdminSkill(token, payload)
+
+      markSectionsUnloaded('skills', 'dashboard')
+      await loadSkillsData(token)
+    })
+  }
+
+  async function removeSkill(id: number) {
+    await runProtectedAction(async (token) => {
+      await deleteAdminSkill(token, id)
+      markSectionsUnloaded('skills', 'dashboard')
+      await loadSkillsData(token)
+    })
+  }
+
+  async function saveExperience(experience: Experience) {
+    await runProtectedAction(async (token) => {
+      const payload = mapExperienceToPayload(experience, experiences.length + 1)
+
+      if (experience.id > 0) await updateAdminExperience(token, experience.id, payload)
+      else await createAdminExperience(token, payload)
+
+      markSectionsUnloaded('experiences')
+      await loadExperiencesData(token)
+    })
+  }
+
+  async function removeExperience(id: number) {
+    await runProtectedAction(async (token) => {
+      await deleteAdminExperience(token, id)
+      markSectionsUnloaded('experiences')
+      await loadExperiencesData(token)
+    })
+  }
+
+  async function reorderExperiences(items: ReorderItemPayload[]) {
+    await runProtectedAction(async (token) => {
+      await reorderAdminExperiences(token, items)
+      markSectionsUnloaded('experiences')
+      await loadExperiencesData(token)
+    })
+  }
+
+  async function openMessage(id: number) {
+    const selectedMessage = messages.find((message) => message.id === id)
+    if (!selectedMessage || selectedMessage.read) return
+
+    await runProtectedAction(async (token) => {
+      await markAdminMessageAsRead(token, id)
+      setMessages((current) => current.map((message) => (message.id === id ? { ...message, read: true } : message)))
+      markSectionsUnloaded('dashboard')
+    })
+  }
+
+  async function removeMessage(id: number) {
+    await runProtectedAction(async (token) => {
+      await deleteAdminMessage(token, id)
+      markSectionsUnloaded('messages', 'dashboard')
+      await loadMessagesData(token)
+    })
+  }
+
+  async function saveSettings() {
+    await runProtectedAction(async (token) => {
+      const trimmedEmail = settings.email.trim()
+      const currentEmail = currentUser?.email?.trim() || ''
+
+      if (trimmedEmail && trimmedEmail !== currentEmail) {
+        await saveAdminAccount(token, { email: trimmedEmail })
+        const nextUser = currentUser ? { ...currentUser, email: trimmedEmail } : null
+        setCurrentUser(nextUser)
+
+        if (authSession) {
+          const nextSession = { ...authSession, user: nextUser || authSession.user }
+          persistSession(nextSession)
+        }
+      }
+
+      if (settings.currentPassword.trim() || settings.newPassword.trim()) {
+        if (!settings.currentPassword.trim() || !settings.newPassword.trim()) {
+          throw new Error('Informe a senha atual e a nova senha para atualizar a credencial.')
+        }
+
+        await resetAdminPassword(token, {
+          currentPassword: settings.currentPassword.trim(),
+          newPassword: settings.newPassword.trim(),
+        })
+      }
+
+      setSettings((current) => ({
+        ...current,
+        currentPassword: '',
+        newPassword: '',
+      }))
+    })
+  }
+
   async function saveAbout(payload: PortfolioProfileSavePayload) {
     await runProtectedAction(async (token) => {
       await saveAdminPortfolioProfile(token, payload)
-      await loadPortfolioData(token)
+      markSectionsUnloaded('about')
+      await loadAboutData(token)
     })
   }
 
@@ -2848,7 +3681,8 @@ export function AdminPage() {
       if (type === 'image') await uploadAdminProfileImage(token, payload)
       else await uploadAdminResume(token, payload)
 
-      await loadPortfolioData(token)
+      markSectionsUnloaded('about')
+      await loadAboutData(token)
     })
   }
 
@@ -2857,70 +3691,80 @@ export function AdminPage() {
       if (type === 'image') await removeAdminProfileImage(token)
       else await removeAdminResume(token)
 
-      await loadPortfolioData(token)
+      markSectionsUnloaded('about')
+      await loadAboutData(token)
     })
   }
 
   async function createStat(payload: PortfolioStatSavePayload) {
     await runProtectedAction(async (token) => {
       await createAdminProfileStat(token, payload)
-      await loadPortfolioData(token)
+      markSectionsUnloaded('about')
+      await loadAboutData(token)
     })
   }
 
   async function updateStat(id: number, payload: PortfolioStatSavePayload) {
     await runProtectedAction(async (token) => {
       await updateAdminProfileStat(token, id, payload)
-      await loadPortfolioData(token)
+      markSectionsUnloaded('about')
+      await loadAboutData(token)
     })
   }
 
   async function deleteStat(id: number) {
     await runProtectedAction(async (token) => {
       await deleteAdminProfileStat(token, id)
-      await loadPortfolioData(token)
+      markSectionsUnloaded('about')
+      await loadAboutData(token)
     })
   }
 
   async function reorderStats(items: ReorderItemPayload[]) {
     await runProtectedAction(async (token) => {
       await reorderAdminProfileStats(token, items)
-      await loadPortfolioData(token)
+      markSectionsUnloaded('about')
+      await loadAboutData(token)
     })
   }
 
   async function createLink(payload: SocialLinkSavePayload) {
     await runProtectedAction(async (token) => {
       await createAdminSocialLink(token, payload)
-      await loadPortfolioData(token)
+      markSectionsUnloaded('links')
+      await loadLinksData(token)
     })
   }
 
   async function updateLink(id: number, payload: SocialLinkSavePayload) {
     await runProtectedAction(async (token) => {
       await updateAdminSocialLink(token, id, payload)
-      await loadPortfolioData(token)
+      markSectionsUnloaded('links')
+      await loadLinksData(token)
     })
   }
 
   async function deleteLink(id: number) {
     await runProtectedAction(async (token) => {
       await deleteAdminSocialLink(token, id)
-      await loadPortfolioData(token)
+      markSectionsUnloaded('links')
+      await loadLinksData(token)
     })
   }
 
   async function toggleLink(id: number) {
     await runProtectedAction(async (token) => {
       await toggleAdminSocialLink(token, id)
-      await loadPortfolioData(token)
+      markSectionsUnloaded('links')
+      await loadLinksData(token)
     })
   }
 
   async function reorderLinks(items: ReorderItemPayload[]) {
     await runProtectedAction(async (token) => {
       await reorderAdminSocialLinks(token, items)
-      await loadPortfolioData(token)
+      markSectionsUnloaded('links')
+      await loadLinksData(token)
     })
   }
 
@@ -2933,9 +3777,9 @@ export function AdminPage() {
       return (
         <ProjectsList
           projects={projects}
-          setProjects={setProjects}
           onCreate={() => setProjectEdit(null)}
           onEdit={(project) => setProjectEdit(project)}
+          onDelete={removeProject}
         />
       )
     }
@@ -2948,23 +3792,30 @@ export function AdminPage() {
       return (
         <SkillsList
           skills={skills}
-          setSkills={setSkills}
           onCreate={() => setSkillEdit(null)}
           onEdit={(skill) => setSkillEdit(skill)}
+          onDelete={removeSkill}
         />
       )
     }
 
     if (page === 'experiences') {
-      return <ExperiencesSection experiences={experiences} setExperiences={setExperiences} />
+      return (
+        <ExperiencesSection
+          experiences={experiences}
+          onSaveExperience={saveExperience}
+          onDeleteExperience={removeExperience}
+          onReorderExperiences={reorderExperiences}
+        />
+      )
     }
 
     if (page === 'messages') {
-      return <MessagesSection messages={messages} setMessages={setMessages} />
+      return <MessagesSection messages={messages} onOpenMessage={openMessage} onDeleteMessage={removeMessage} />
     }
 
     if (page === 'visitors') {
-      return <VisitorsSection visitors={visitors} />
+      return <VisitorsSection visitorStats={visitorStats} />
     }
 
     if (page === 'about') {
@@ -3001,10 +3852,10 @@ export function AdminPage() {
     }
 
     if (page === 'settings') {
-      return <SettingsSection settings={settings} setSettings={setSettings} />
+      return <SettingsSection settings={settings} setSettings={setSettings} onSaveSettings={saveSettings} />
     }
 
-    return <Dashboard projects={projects} skills={skills} messages={messages} visitors={visitors} onNav={navigate} />
+    return <Dashboard dashboard={dashboardData} visitorStats={visitorStats} onNav={navigate} />
   }
 
   if (!loggedIn) {
@@ -3013,10 +3864,21 @@ export function AdminPage() {
         {visibleAdminError ? <AdminToast message={visibleAdminError} onClose={() => setDismissedAdminError(true)} /> : null}
         <LoginScreen
           onLogin={(session) => {
+            setPage('dashboard')
+            setLoadedAdminSections(getEmptyLoadedSections())
             persistSession(session)
             setAdminError('')
           }}
         />
+      </>
+    )
+  }
+
+  if (shouldShowPortfolioSetup(currentUser)) {
+    return (
+      <>
+        {visibleAdminError ? <AdminToast message={visibleAdminError} onClose={() => setDismissedAdminError(true)} /> : null}
+        <PortfolioSetupScreen currentUser={currentUser} onCreate={createInitialPortfolio} />
       </>
     )
   }
@@ -3035,6 +3897,17 @@ export function AdminPage() {
             clearAdminSession()
             setAuthSession(null)
             setCurrentUser(null)
+            setPage('dashboard')
+            setDashboardData(null)
+            setVisitorStats(null)
+            setProjects([])
+            setSkills([])
+            setExperiences([])
+            setMessages([])
+            setAbout(ABOUT_INITIAL_STATE)
+            setProfileStats([])
+            setLinks([])
+            setLoadedAdminSections(getEmptyLoadedSections())
             setSettings((current) => ({ ...current, token: '' }))
           }}
         />
