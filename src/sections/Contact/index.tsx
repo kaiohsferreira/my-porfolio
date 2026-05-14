@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useLanguage } from '@/context/LanguageContext'
 import { usePortfolioContent } from '@/context/PortfolioContentContext'
 import { SectionHeader } from '@/components/ui/SectionHeader'
+import { sendPublicContactMessage } from '@/lib/portfolio-api'
 
 const GithubIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -28,18 +29,47 @@ function getSocialIcon(name: string) {
 
 export function Contact() {
   const { t } = useLanguage()
-  const { profile } = usePortfolioContent()
+  const { profile, portfolioUrl } = usePortfolioContent()
   const [form, setForm] = useState({ fname: '', lname: '', email: '', msg: '' })
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setLoading(true)
-    setTimeout(() => {
+
+    try {
       setLoading(false)
+      setError('')
+      setSubmitted(false)
+
+      const senderName = [form.fname.trim(), form.lname.trim()].filter(Boolean).join(' ').trim()
+      if (!senderName) {
+        setError(t('Informe nome e sobrenome.', 'Please enter first and last name.'))
+        return
+      }
+
+      setLoading(true)
+      await sendPublicContactMessage(
+        {
+          senderName,
+          senderEmail: form.email.trim(),
+          body: form.msg.trim(),
+        },
+        portfolioUrl,
+      )
+
       setSubmitted(true)
-    }, 1000)
+      setForm({ fname: '', lname: '', email: '', msg: '' })
+    } catch (submitError) {
+      setError(
+        submitError instanceof Error
+          ? submitError.message
+          : t('Nao foi possivel enviar a mensagem agora.', 'Could not send the message right now.'),
+      )
+    } finally {
+      setLoading(false)
+    }
   }
 
   const contactLinks = profile.socialLinks.length
@@ -206,6 +236,15 @@ export function Contact() {
                 {loading ? '...' : t('Enviar ->', 'Send ->')}
               </button>
             </div>
+
+            {error ? (
+              <div
+                className="font-mono text-[12px] p-3 border mt-1"
+                style={{ color: 'oklch(65% 0.22 25)', borderColor: 'oklch(65% 0.22 25 / 0.55)', background: 'oklch(65% 0.22 25 / 0.12)' }}
+              >
+                {error}
+              </div>
+            ) : null}
 
             {submitted ? (
               <div

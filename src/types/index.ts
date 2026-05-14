@@ -16,6 +16,7 @@ export interface Skill {
   id: number
   name: string
   category: string
+  iconName: string
   level: number
   sortOrder?: number
 }

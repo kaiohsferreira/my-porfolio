@@ -1,14 +1,14 @@
 export const SKILLS_DATA = [
-  { name: 'HTML5',      icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/html5/html5-original.svg' },
-  { name: 'CSS3',       icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/css3/css3-original.svg' },
-  { name: 'JavaScript', icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/javascript/javascript-original.svg' },
-  { name: 'C#',         icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/csharp/csharp-original.svg' },
-  { name: 'Python',     icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg' },
-  { name: 'MySQL',      icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/mysql/mysql-original.svg' },
-  { name: 'Unity',      icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/unity/unity-original.svg', filterStyle: 'invert(1) brightness(0.7)' },
-  { name: 'Git',        icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/git/git-original.svg' },
-  { name: 'GitHub',     icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/github/github-original.svg', filterStyle: 'invert(0.8)' },
-  { name: 'VS Code',    icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/vscode/vscode-original.svg' },
+  { name: 'HTML5', iconName: 'html5' },
+  { name: 'CSS3', iconName: 'css3' },
+  { name: 'JavaScript', iconName: 'javascript' },
+  { name: 'C#', iconName: 'csharp' },
+  { name: 'Python', iconName: 'python' },
+  { name: 'MySQL', iconName: 'mysql' },
+  { name: 'Unity', iconName: 'unity' },
+  { name: 'Git', iconName: 'git' },
+  { name: 'GitHub', iconName: 'github' },
+  { name: 'VS Code', iconName: 'vscode' },
 ]
 
 export interface ProjectData {

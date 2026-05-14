@@ -1,14 +1,57 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useLanguage } from '@/context/LanguageContext'
+import { usePortfolioContent } from '@/context/PortfolioContentContext'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import { SKILLS_DATA } from '@/data/portfolio'
+import { getSkillIconUrls } from '@/lib/skill-icons'
+
+function SkillIcon({ iconName, alt }: { iconName: string; alt: string }) {
+  const urls = getSkillIconUrls(iconName, 64)
+  const [index, setIndex] = useState(0)
+
+  useEffect(() => {
+    setIndex(0)
+  }, [iconName])
+
+  if (!urls.length) {
+    return (
+      <div
+        className="w-16 h-16 flex items-center justify-center"
+        style={{ border: '1px solid var(--border)', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', fontSize: 11 }}
+      >
+        N/A
+      </div>
+    )
+  }
+
+  return (
+    <img
+      src={urls[index]}
+      alt={alt}
+      className="w-16 h-16 object-contain transition-all duration-[250ms]"
+      loading="lazy"
+      onError={() => {
+        if (index < urls.length - 1) setIndex((current) => current + 1)
+      }}
+    />
+  )
+}
 
 export function Skills() {
   const { t } = useLanguage()
+  const { skills } = usePortfolioContent()
   const marqueeRef = useRef<HTMLDivElement>(null)
   const baseGroupRef = useRef<HTMLDivElement>(null)
   const [repeatCount, setRepeatCount] = useState(2)
   const [loopShift, setLoopShift] = useState(0)
+  const visibleSkills = skills.length ? skills : SKILLS_DATA.map((skill, index) => ({
+    id: index + 1,
+    name: skill.name,
+    category: 'Skills',
+    iconName: skill.iconName,
+    level: 0,
+    sortOrder: index,
+  }))
 
   useEffect(() => {
     const marquee = marqueeRef.current
@@ -69,9 +112,9 @@ export function Skills() {
               className="skills-marquee-group"
               aria-hidden={groupIndex > 0}
             >
-              {SKILLS_DATA.map((skill) => (
+              {visibleSkills.map((skill) => (
                 <div
-                  key={`${groupIndex}-${skill.name}`}
+                  key={`${groupIndex}-${skill.id}-${skill.name}`}
                   className="skill-card-hover relative border flex flex-col items-center justify-center gap-4 cursor-default overflow-hidden transition-all duration-[250ms]"
                   style={{
                     background: 'var(--surface)',
@@ -93,13 +136,7 @@ export function Skills() {
                   }}
                 >
                   <div className="w-16 h-16 flex items-center justify-center relative z-10">
-                    <img
-                      src={skill.icon}
-                      alt={skill.name}
-                      className="w-16 h-16 object-contain transition-all duration-[250ms]"
-                      style={{ filter: skill.filterStyle ?? 'grayscale(20%)' }}
-                      loading="lazy"
-                    />
+                    <SkillIcon iconName={skill.iconName} alt={skill.name} />
                   </div>
                   <span
                     className="font-mono text-[11px] tracking-[0.06em] text-center relative z-10 whitespace-nowrap transition-colors duration-[250ms]"

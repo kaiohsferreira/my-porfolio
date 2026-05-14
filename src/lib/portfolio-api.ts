@@ -92,6 +92,8 @@ export interface PortfolioProfileSavePayload {
   bioEn?: string | null
   availableForWork: boolean
   sinceYear?: number | null
+  profileImage?: FilePayload | null
+  resumeFile?: FilePayload | null
 }
 
 export interface PortfolioStat {
@@ -187,6 +189,7 @@ export interface AdminSkill {
   id: number
   name: string
   category: string | null
+  iconName?: string | null
   level: number
   sortOrder: number
 }
@@ -194,6 +197,7 @@ export interface AdminSkill {
 export interface AdminSkillSavePayload {
   name: string
   category?: string | null
+  iconName?: string | null
   level: number
   sortOrder: number
 }
@@ -213,6 +217,12 @@ export interface AdminExperienceSavePayload {
   period?: string | null
   description?: string | null
   sortOrder: number
+}
+
+export interface PublicContactMessagePayload {
+  senderName: string
+  senderEmail: string
+  body: string
 }
 
 export interface ContactMessageAdmin {
@@ -470,6 +480,19 @@ export async function getPublicSocialLinks(portfolioUrl = getPortfolioUrl()) {
   return apiRequest<SocialLinkPublic[]>(`/PublicSocialLink/GetActive?url=${encodedUrl}`)
 }
 
+export async function getPublicSkills(portfolioUrl = getPortfolioUrl()) {
+  const encodedUrl = encodeURIComponent(portfolioUrl)
+  return apiRequest<AdminSkill[]>(`/PublicSkill/GetAll?url=${encodedUrl}`)
+}
+
+export async function sendPublicContactMessage(payload: PublicContactMessagePayload, portfolioUrl = getPortfolioUrl()) {
+  const encodedUrl = encodeURIComponent(portfolioUrl)
+  return apiRequest<void>(`/PublicContactMessage/Send?url=${encodedUrl}`, {
+    method: 'POST',
+    body: payload,
+  })
+}
+
 export async function getAdminPortfolioProfile(token: string) {
   try {
     const profile = await apiRequest<PortfolioProfileAdmin>('/PortfolioProfile/Get', { token })
@@ -481,6 +504,10 @@ export async function getAdminPortfolioProfile(token: string) {
 
     throw error
   }
+}
+
+export async function prepareAdminPortfolioProfile(token: string) {
+  return getAdminPortfolioProfile(token)
 }
 
 export async function saveAdminPortfolioProfile(token: string, payload: PortfolioProfileSavePayload) {
@@ -541,6 +568,10 @@ export async function createAdminProfileStat(token: string, payload: PortfolioSt
   })
 }
 
+export async function prepareAdminProfileStat(token: string, id: number) {
+  return apiRequest<PortfolioStat>(`/ProfileStat/Prepare?id=${encodeURIComponent(String(id))}`, { token })
+}
+
 export async function updateAdminProfileStat(token: string, id: number, payload: PortfolioStatSavePayload) {
   return apiRequest<void>(`/ProfileStat/Update/${id}`, {
     method: 'POST',
@@ -574,6 +605,10 @@ export async function createAdminSocialLink(token: string, payload: SocialLinkSa
     token,
     body: payload,
   })
+}
+
+export async function prepareAdminSocialLink(token: string, id: number) {
+  return apiRequest<SocialLinkAdmin>(`/SocialLink/Prepare?id=${encodeURIComponent(String(id))}`, { token })
 }
 
 export async function updateAdminSocialLink(token: string, id: number, payload: SocialLinkSavePayload) {
@@ -622,6 +657,10 @@ export async function createAdminProject(token: string, payload: AdminProjectSav
   })
 }
 
+export async function prepareAdminProject(token: string, id: number) {
+  return apiRequest<AdminProject>(`/Project/Prepare?id=${encodeURIComponent(String(id))}`, { token })
+}
+
 export async function updateAdminProject(token: string, id: number, payload: AdminProjectSavePayload) {
   return apiRequest<void>(`/Project/Update/${id}`, {
     method: 'POST',
@@ -647,6 +686,10 @@ export async function createAdminSkill(token: string, payload: AdminSkillSavePay
     token,
     body: payload,
   })
+}
+
+export async function prepareAdminSkill(token: string, id: number) {
+  return apiRequest<AdminSkill>(`/Skill/Prepare?id=${encodeURIComponent(String(id))}`, { token })
 }
 
 export async function updateAdminSkill(token: string, id: number, payload: AdminSkillSavePayload) {
@@ -684,6 +727,10 @@ export async function createAdminExperience(token: string, payload: AdminExperie
   })
 }
 
+export async function prepareAdminExperience(token: string, id: number) {
+  return apiRequest<AdminExperience>(`/Experience/Prepare?id=${encodeURIComponent(String(id))}`, { token })
+}
+
 export async function updateAdminExperience(token: string, id: number, payload: AdminExperienceSavePayload) {
   return apiRequest<void>(`/Experience/Update/${id}`, {
     method: 'POST',
@@ -709,6 +756,10 @@ export async function reorderAdminExperiences(token: string, items: ReorderItemP
 
 export async function getAdminMessages(token: string) {
   return apiRequest<ContactMessageAdmin[]>('/ContactMessage/GetAll', { token })
+}
+
+export async function prepareAdminMessage(token: string, id: number) {
+  return apiRequest<ContactMessageAdmin>(`/ContactMessage/Prepare?id=${encodeURIComponent(String(id))}`, { token })
 }
 
 export async function markAdminMessageAsRead(token: string, id: number) {

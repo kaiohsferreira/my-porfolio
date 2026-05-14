@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react'
 import { useLanguage } from '@/context/LanguageContext'
 import { readFileAsDataUrl } from '@/lib/file-utils'
+import { getSkillIconUrls, normalizeSkillIconName, searchSkillIcons, type SkillIconSearchResult } from '@/lib/skill-icons'
 import {
   createAdminExperience,
   createAdminProject,
@@ -20,7 +21,6 @@ import {
   getAdminDashboard,
   getAdminExperiences,
   getAdminMessages,
-  getAdminPortfolioProfile,
   getAdminProfileStats,
   getAdminProjects,
   getAdminSocialLinks,
@@ -32,6 +32,13 @@ import {
   isApiError,
   loginAdmin,
   markAdminMessageAsRead,
+  prepareAdminExperience,
+  prepareAdminMessage,
+  prepareAdminPortfolioProfile,
+  prepareAdminProfileStat,
+  prepareAdminProject,
+  prepareAdminSkill,
+  prepareAdminSocialLink,
   removeAdminProfileImage,
   removeAdminResume,
   reorderAdminExperiences,
@@ -103,6 +110,17 @@ interface AboutState {
   sinceYear: string
   profileImageUrl: string | null
   resumeFileUrl: string | null
+}
+
+interface OnboardingProfileState {
+  fullName: string
+  headline: string
+  headlineEn: string
+  location: string
+  bioPt: string
+  bioEn: string
+  availableForWork: boolean
+  sinceYear: string
 }
 
 interface StatItem {
@@ -412,6 +430,7 @@ function mapSkillToItem(skill: AdminSkill): Skill {
     id: skill.id,
     name: skill.name,
     category: skill.category || 'Sem categoria',
+    iconName: skill.iconName || '',
     level: skill.level,
     sortOrder: skill.sortOrder,
   }
@@ -421,6 +440,7 @@ function mapSkillToPayload(skill: Skill, fallbackSortOrder: number): AdminSkillS
   return {
     name: skill.name.trim(),
     category: skill.category.trim() || null,
+    iconName: skill.iconName.trim() || null,
     level: skill.level,
     sortOrder: skill.sortOrder ?? fallbackSortOrder,
   }
@@ -504,6 +524,54 @@ function shouldShowPortfolioSetup(user: AdminUserInfo | null) {
 function getAdminDisplayName(user: AdminUserInfo | null) {
   if (!user) return 'Administrador'
   return user.fullName || [user.name, user.lastName].filter(Boolean).join(' ').trim() || user.email || 'Administrador'
+}
+
+function buildUserLocation(user: AdminUserInfo | null) {
+  if (!user) return null
+
+  const city = user.cityStr?.trim()
+  const state = user.stateStr?.trim()
+
+  if (city && state) return `${city}, ${state}`
+  if (city) return city
+  if (state) return state
+
+  return null
+}
+
+function createInitialOnboardingProfileState(user: AdminUserInfo | null): OnboardingProfileState {
+  const suggestedName = getAdminDisplayName(user)
+
+  return {
+    fullName: suggestedName === 'Administrador' ? '' : suggestedName,
+    headline: '',
+    headlineEn: '',
+    location: buildUserLocation(user) || '',
+    bioPt: '',
+    bioEn: '',
+    availableForWork: true,
+    sinceYear: '',
+  }
+}
+
+function toNullableTrimmedText(value: string) {
+  const normalized = value.trim()
+  return normalized || null
+}
+
+function mapOnboardingProfileToPayload(profile: OnboardingProfileState): PortfolioProfileSavePayload {
+  return {
+    fullName: profile.fullName.trim(),
+    headline: toNullableTrimmedText(profile.headline),
+    headlineEn: toNullableTrimmedText(profile.headlineEn),
+    location: toNullableTrimmedText(profile.location),
+    bioPt: toNullableTrimmedText(profile.bioPt),
+    bioEn: toNullableTrimmedText(profile.bioEn),
+    availableForWork: profile.availableForWork,
+    sinceYear: profile.sinceYear.trim() ? Number(profile.sinceYear) : null,
+    profileImage: null,
+    resumeFile: null,
+  }
 }
 
 function getEmptyLoadedSections() {
@@ -906,6 +974,312 @@ function TextAreaField({
         rows={rows}
         style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.6 }}
       />
+    </div>
+  )
+}
+
+function IconAsset({
+  iconName,
+  size = 28,
+}: {
+  iconName: string
+  size?: number
+}) {
+  const urls = getSkillIconUrls(iconName, size)
+  const [index, setIndex] = useState(0)
+
+  useEffect(() => {
+    setIndex(0)
+  }, [iconName])
+
+  if (!iconName.trim() || !urls.length) {
+    return (
+      <div
+        style={{
+          width: size,
+          height: size,
+          display: 'grid',
+          placeItems: 'center',
+          border: '1px solid var(--border)',
+          color: 'var(--text-dim)',
+          fontFamily: 'var(--font-mono)',
+          fontSize: 10,
+        }}
+      >
+        ?
+      </div>
+    )
+  }
+
+  return (
+    <img
+      src={urls[index]}
+      alt={iconName}
+      width={size}
+      height={size}
+      loading="lazy"
+      onError={() => {
+        if (index < urls.length - 1) setIndex((current) => current + 1)
+      }}
+    />
+  )
+}
+
+function IconCombobox({
+  label,
+  value,
+  onChange,
+  suggestedQuery,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  suggestedQuery: string
+}) {
+  const [query, setQuery] = useState(suggestedQuery)
+  const [results, setResults] = useState<SkillIconSearchResult[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [searchError, setSearchError] = useState('')
+
+  useEffect(() => {
+    if (!query.trim()) {
+      setResults([])
+      setSearchError('')
+      setIsSearching(false)
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void (async () => {
+        try {
+          setIsSearching(true)
+          setSearchError('')
+          const nextResults = await searchSkillIcons(query)
+          setResults(nextResults)
+        } catch (error) {
+          setResults([])
+          setSearchError(error instanceof Error ? error.message : 'Nao foi possivel carregar os icones.')
+        } finally {
+          setIsSearching(false)
+        }
+      })()
+    }, 320)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [query])
+
+  useEffect(() => {
+    if (!query.trim() && suggestedQuery.trim()) {
+      setQuery(suggestedQuery)
+    }
+  }, [query, suggestedQuery])
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <label style={sectionEyebrowStyle}>{label}</label>
+      <div
+        style={{
+          border: '1px solid var(--border)',
+          background: 'rgba(255,255,255,0.01)',
+          padding: 14,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              display: 'grid',
+              placeItems: 'center',
+              border: '1px solid var(--border-bright)',
+              background: 'var(--bg2)',
+              flexShrink: 0,
+            }}
+          >
+            <IconAsset iconName={value} size={28} />
+          </div>
+
+          <div style={{ flex: '1 1 260px', minWidth: 0 }}>
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Buscar icone: react, node, docker, aws..."
+              style={inputStyle}
+            />
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {isSearching ? <TagPill label="buscando icones" color="cyan" /> : null}
+          {value ? <TagPill label={value} color="green" /> : <TagPill label="nenhum icone selecionado" color="yellow" />}
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+            {searchError || 'Selecione um icone visual. O valor salvo sera no formato prefix:name.'}
+          </span>
+        </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+            gap: 10,
+            maxHeight: 260,
+            overflowY: 'auto',
+          }}
+        >
+          {results.map((result) => {
+            const selected = value === result.iconName
+
+            return (
+              <button
+                key={result.sourceIcon}
+                type="button"
+                onClick={() => onChange(normalizeSkillIconName(result.iconName))}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  border: `1px solid ${selected ? 'oklch(72% 0.25 160 / 0.35)' : 'var(--border)'}`,
+                  background: selected ? 'var(--green-glow)' : 'rgba(255,255,255,0.01)',
+                  color: selected ? 'var(--green)' : 'var(--text)',
+                  padding: '10px 12px',
+                  textAlign: 'left',
+                }}
+              >
+                <img src={result.svgUrl} alt={result.iconName} width={22} height={22} loading="lazy" />
+                <span style={{ fontSize: 11, lineHeight: 1.4, wordBreak: 'break-word' }}>{result.iconName}</span>
+              </button>
+            )
+          })}
+          {!isSearching && !results.length && query.trim().length >= 2 ? (
+            <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>Nenhum icone encontrado para essa busca.</div>
+          ) : null}
+          {!isSearching && query.trim().length < 2 ? (
+            <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>Digite pelo menos 2 caracteres para buscar icones.</div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function extractAssetLabelFromUrl(url: string | null) {
+  if (!url) return ''
+
+  try {
+    const parsed = new URL(url)
+    const raw = parsed.pathname.split('/').filter(Boolean).at(-1) || ''
+    return decodeURIComponent(raw)
+  } catch {
+    const raw = url.split('/').filter(Boolean).at(-1) || ''
+    return raw
+  }
+}
+
+function AssetUploadField({
+  label,
+  hint,
+  accept,
+  assetType,
+  currentUrl,
+  pendingName,
+  busy,
+  onPick,
+  onRemove,
+}: {
+  label: string
+  hint: string
+  accept: string
+  assetType: 'image' | 'resume'
+  currentUrl: string | null
+  pendingName: string
+  busy: boolean
+  onPick: (event: React.ChangeEvent<HTMLInputElement>) => void
+  onRemove: () => void
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null)
+  const currentLabel = pendingName || extractAssetLabelFromUrl(currentUrl)
+  const hasAsset = Boolean(currentUrl || pendingName)
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <label style={sectionEyebrowStyle}>{label}</label>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={accept}
+        onChange={onPick}
+        style={{ display: 'none' }}
+      />
+
+      <div
+        style={{
+          border: '1px solid var(--border)',
+          background: 'linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01))',
+          padding: 14,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+          minHeight: 124,
+          justifyContent: 'space-between',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div
+            style={{
+              width: 52,
+              height: 52,
+              flexShrink: 0,
+              display: 'grid',
+              placeItems: 'center',
+              border: '1px solid var(--border-bright)',
+              background: 'rgba(255,255,255,0.02)',
+              overflow: 'hidden',
+            }}
+          >
+            {assetType === 'image' && currentUrl ? (
+              <img src={currentUrl} alt="Preview da foto de perfil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <Icon name={assetType === 'image' ? 'about' : 'mail'} size={18} color="var(--text-dim)" />
+            )}
+          </div>
+
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
+              {hasAsset ? currentLabel || (assetType === 'image' ? 'Foto pronta para uso' : 'Curriculo pronto para uso') : hint}
+            </div>
+            <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+              {busy
+                ? assetType === 'image'
+                  ? 'Enviando foto de perfil...'
+                  : 'Enviando curriculo...'
+                : hasAsset
+                  ? assetType === 'image'
+                    ? 'Voce pode trocar a imagem atual ou remover o arquivo salvo.'
+                    : 'Voce pode trocar o curriculo atual ou remover o arquivo salvo.'
+                  : assetType === 'image'
+                    ? 'Envie JPG, PNG ou WEBP para atualizar sua foto de perfil.'
+                    : 'Envie PDF, DOC ou DOCX para disponibilizar seu curriculo.'}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <ButtonPrimary
+            small
+            icon="plus"
+            onClick={() => inputRef.current?.click()}
+            disabled={busy}
+          >
+            {hasAsset ? 'trocar arquivo' : 'escolher arquivo'}
+          </ButtonPrimary>
+          <ButtonOutline onClick={() => { if (!busy) onRemove() }} small>
+            {assetType === 'image' ? 'remover foto' : 'remover curriculo'}
+          </ButtonOutline>
+        </div>
+      </div>
     </div>
   )
 }
@@ -1408,20 +1782,39 @@ function LoginScreen({ onLogin }: { onLogin: (session: AdminAuthSession) => void
 
 function PortfolioSetupScreen({
   currentUser,
-  onCreate,
+  onCreateSetup,
+  onCreateProfile,
 }: {
   currentUser: AdminUserInfo | null
-  onCreate: (payload: { name: string; portfolioUrl: string }) => Promise<void>
+  onCreateSetup: (payload: { name: string; portfolioUrl: string }) => Promise<void>
+  onCreateProfile: (payload: PortfolioProfileSavePayload) => Promise<void>
 }) {
   const suggestedName = getAdminDisplayName(currentUser)
+  const hasManagement = hasValidManagementSelection(currentUser)
+  const [step, setStep] = useState<'setup' | 'profile'>(() => (hasManagement ? 'profile' : 'setup'))
   const [name, setName] = useState(suggestedName === 'Administrador' ? '' : suggestedName)
   const [portfolioUrl, setPortfolioUrl] = useState(() => getPortfolioUrl())
+  const [profile, setProfile] = useState<OnboardingProfileState>(() => createInitialOnboardingProfileState(currentUser))
   const [urlState, setUrlState] = useState<PortfolioSetupUrlCheck | null>(null)
   const [isCheckingUrl, setIsCheckingUrl] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSubmittingSetup, setIsSubmittingSetup] = useState(false)
+  const [isSubmittingProfile, setIsSubmittingProfile] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
+    if (hasManagement) {
+      setStep('profile')
+      setProfile((current) => ({
+        ...current,
+        fullName: current.fullName.trim() ? current.fullName : suggestedName === 'Administrador' ? '' : suggestedName,
+        location: current.location.trim() ? current.location : buildUserLocation(currentUser) || '',
+      }))
+    }
+  }, [currentUser, hasManagement, suggestedName])
+
+  useEffect(() => {
+    if (step !== 'setup') return
+
     const normalizedUrl = normalizePortfolioUrl(portfolioUrl)
 
     if (!normalizedUrl) {
@@ -1466,17 +1859,19 @@ function PortfolioSetupScreen({
       if (!token) throw new Error('Sessao nao encontrada para validar a URL.')
       return checkPortfolioSetupUrl(token, nextUrl)
     }
-  }, [portfolioUrl])
+  }, [portfolioUrl, step])
 
   const normalizedUrl = normalizePortfolioUrl(portfolioUrl)
-  const canSubmit =
+  const canSubmitSetup =
     name.trim().length >= 2 &&
     isValidPortfolioUrl(normalizedUrl) &&
     !!urlState?.available &&
     !isCheckingUrl &&
-    !isSubmitting
+    !isSubmittingSetup
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
+  const canSubmitProfile = profile.fullName.trim().length >= 2 && !isSubmittingProfile
+
+  async function submitSetup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
     if (!name.trim()) {
@@ -1495,13 +1890,37 @@ function PortfolioSetupScreen({
     }
 
     try {
-      setIsSubmitting(true)
+      setIsSubmittingSetup(true)
       setError('')
-      await onCreate({ name: name.trim(), portfolioUrl: normalizedUrl })
+      await onCreateSetup({ name: name.trim(), portfolioUrl: normalizedUrl })
+      setProfile((current) => ({
+        ...current,
+        fullName: current.fullName.trim() ? current.fullName : name.trim(),
+      }))
+      setStep('profile')
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Nao foi possivel criar o portfolio.')
     } finally {
-      setIsSubmitting(false)
+      setIsSubmittingSetup(false)
+    }
+  }
+
+  async function submitProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (!profile.fullName.trim()) {
+      setError('Informe o nome completo exibido no portfolio.')
+      return
+    }
+
+    try {
+      setIsSubmittingProfile(true)
+      setError('')
+      await onCreateProfile(mapOnboardingProfileToPayload(profile))
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Nao foi possivel salvar o perfil inicial do portfolio.')
+    } finally {
+      setIsSubmittingProfile(false)
     }
   }
 
@@ -1520,11 +1939,28 @@ function PortfolioSetupScreen({
         accent="linear-gradient(to right, var(--green), var(--cyan))"
         style={{ width: 'min(100%, 680px)', padding: 32 }}
       >
-        <div style={sectionEyebrowStyle}>Onboarding do portfolio</div>
-        <h1 style={{ fontSize: 34, fontWeight: 700, letterSpacing: '-0.03em', marginTop: 12 }}>Crie seu portfolio</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          {step === 'profile' ? (
+            <ButtonOutline
+              icon="arrowLeft"
+              small
+              onClick={() => {
+                setStep('setup')
+                setError('')
+              }}
+            >
+              voltar
+            </ButtonOutline>
+          ) : null}
+          <div style={sectionEyebrowStyle}>Onboarding do portfolio</div>
+        </div>
+        <h1 style={{ fontSize: 34, fontWeight: 700, letterSpacing: '-0.03em', marginTop: 12 }}>
+          {step === 'setup' ? 'Crie seu portfolio' : 'Complete seu perfil inicial'}
+        </h1>
         <p style={{ marginTop: 10, fontSize: 15, color: 'var(--text-muted)', lineHeight: 1.7 }}>
-          Seu usuario autenticou com sucesso, mas ainda nao possui um portfolio criado. Antes de acessar o painel,
-          precisamos configurar o nome publico e a URL principal da sua pagina.
+          {step === 'setup'
+            ? 'Seu usuario autenticou com sucesso, mas ainda nao possui um portfolio criado. Antes de acessar o painel, precisamos configurar o nome publico e a URL principal da sua pagina.'
+            : 'A base inicial ja foi preparada. Agora preencha os dados principais do perfil para concluir a criacao do portfolio e liberar o painel.'}
         </p>
 
         <div
@@ -1542,58 +1978,166 @@ function PortfolioSetupScreen({
           </PanelCard>
           <PanelCard style={{ padding: 18 }}>
             <div style={sectionEyebrowStyle}>Status</div>
-            <div style={{ marginTop: 10 }}><TagPill label="portfolio pendente" color="yellow" /></div>
-            <div style={{ marginTop: 8, fontSize: 13, color: 'var(--text-muted)' }}>Configure agora para liberar o admin.</div>
+            <div style={{ marginTop: 10 }}>
+              <TagPill label={step === 'setup' ? 'portfolio pendente' : 'perfil em configuracao'} color="yellow" />
+            </div>
+            <div style={{ marginTop: 8, fontSize: 13, color: 'var(--text-muted)' }}>
+              {step === 'setup' ? 'Configure agora para liberar o admin.' : 'Mais um passo e o painel sera liberado.'}
+            </div>
           </PanelCard>
           <PanelCard style={{ padding: 18 }}>
-            <div style={sectionEyebrowStyle}>URL do portfolio</div>
+            <div style={sectionEyebrowStyle}>{step === 'setup' ? 'URL do portfolio' : 'Etapa atual'}</div>
             <div style={{ marginTop: 10, fontSize: 14, color: 'var(--text)', wordBreak: 'break-word' }}>
-              {normalizedUrl || 'https://seu-dominio.com'}
+              {step === 'setup' ? normalizedUrl || 'https://seu-dominio.com' : 'Perfil principal / PortfolioProfile'}
             </div>
-            <div style={{ marginTop: 8, fontSize: 13, color: 'var(--text-muted)' }}>Essa URL sera usada pelo site publico para resolver seu portfolio.</div>
+            <div style={{ marginTop: 8, fontSize: 13, color: 'var(--text-muted)' }}>
+              {step === 'setup'
+                ? 'Essa URL sera usada pelo site publico para resolver seu portfolio.'
+                : 'Os campos abaixo serao enviados para o endpoint de save do perfil principal.'}
+            </div>
           </PanelCard>
         </div>
 
-        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 28 }}>
-          <TextField
-            label="Nome do portfolio"
-            value={name}
-            onChange={(value) => {
-              setName(value)
-              setError('')
-            }}
-            placeholder="Ex: Kaio Ferreira"
-          />
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {step === 'setup' ? (
+          <form onSubmit={submitSetup} style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 28 }}>
             <TextField
-              label="URL publica do portfolio"
-              value={portfolioUrl}
+              label="Nome do portfolio"
+              value={name}
               onChange={(value) => {
-                setPortfolioUrl(normalizePortfolioUrl(value))
+                setName(value)
                 setError('')
               }}
-              placeholder="Ex: https://kaioferreira.com"
+              placeholder="Ex: Kaio Ferreira"
             />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              {isCheckingUrl ? <TagPill label="validando url" color="cyan" /> : null}
-              {!isCheckingUrl && urlState?.available ? <TagPill label="url disponivel" color="green" /> : null}
-              {!isCheckingUrl && urlState && !urlState.available ? <TagPill label="url indisponivel" color="red" /> : null}
-              <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                {urlState?.message || 'Use a URL completa com protocolo, por exemplo https://kaioferreira.com.'}
-              </span>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <TextField
+                label="URL publica do portfolio"
+                value={portfolioUrl}
+                onChange={(value) => {
+                  setPortfolioUrl(normalizePortfolioUrl(value))
+                  setError('')
+                }}
+                placeholder="Ex: https://kaioferreira.com"
+              />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                {isCheckingUrl ? <TagPill label="validando url" color="cyan" /> : null}
+                {!isCheckingUrl && urlState?.available ? <TagPill label="url disponivel" color="green" /> : null}
+                {!isCheckingUrl && urlState && !urlState.available ? <TagPill label="url indisponivel" color="red" /> : null}
+                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                  {urlState?.message || 'Use a URL completa com protocolo, por exemplo https://kaioferreira.com.'}
+                </span>
+              </div>
             </div>
-          </div>
 
-          {error ? <div style={{ color: 'oklch(65% 0.22 25)', fontSize: 13 }}>{error}</div> : null}
+            {error ? <div style={{ color: 'oklch(65% 0.22 25)', fontSize: 13 }}>{error}</div> : null}
 
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', marginTop: 8 }}>
-            <span style={{ ...sectionEyebrowStyle, color: 'var(--cyan)' }}>Setup inicial obrigatorio</span>
-            <ButtonPrimary type="submit" disabled={!canSubmit}>
-              {isSubmitting ? 'criando portfolio...' : 'Criar portfolio'}
-            </ButtonPrimary>
-          </div>
-        </form>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', marginTop: 8 }}>
+              <span style={{ ...sectionEyebrowStyle, color: 'var(--cyan)' }}>Setup inicial obrigatorio</span>
+              <ButtonPrimary type="submit" disabled={!canSubmitSetup}>
+                {isSubmittingSetup ? 'criando base inicial...' : 'Continuar para o perfil'}
+              </ButtonPrimary>
+            </div>
+          </form>
+        ) : (
+          <form onSubmit={submitProfile} style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 28 }}>
+            <div className="admin-grid-2">
+              <TextField
+                label="Nome completo"
+                value={profile.fullName}
+                onChange={(value) => {
+                  setProfile((current) => ({ ...current, fullName: value }))
+                  setError('')
+                }}
+                placeholder="Ex: Kaio Ferreira"
+              />
+              <TextField
+                label="Localizacao"
+                value={profile.location}
+                onChange={(value) => {
+                  setProfile((current) => ({ ...current, location: value }))
+                  setError('')
+                }}
+                placeholder="Ex: Brasil"
+              />
+            </div>
+
+            <div className="admin-grid-2">
+              <TextField
+                label="Headline PT"
+                value={profile.headline}
+                onChange={(value) => {
+                  setProfile((current) => ({ ...current, headline: value }))
+                  setError('')
+                }}
+                placeholder="Ex: Desenvolvedor Full Stack"
+              />
+              <TextField
+                label="Headline EN"
+                value={profile.headlineEn}
+                onChange={(value) => {
+                  setProfile((current) => ({ ...current, headlineEn: value }))
+                  setError('')
+                }}
+                placeholder="Ex: Full Stack Developer"
+              />
+            </div>
+
+            <div className="admin-grid-2">
+              <TextAreaField
+                label="Bio PT"
+                value={profile.bioPt}
+                onChange={(value) => {
+                  setProfile((current) => ({ ...current, bioPt: value }))
+                  setError('')
+                }}
+                rows={5}
+              />
+              <TextAreaField
+                label="Bio EN"
+                value={profile.bioEn}
+                onChange={(value) => {
+                  setProfile((current) => ({ ...current, bioEn: value }))
+                  setError('')
+                }}
+                rows={5}
+              />
+            </div>
+
+            <div className="admin-grid-2" style={{ alignItems: 'end' }}>
+              <TextField
+                label="Ano de inicio"
+                value={profile.sinceYear}
+                onChange={(value) => {
+                  setProfile((current) => ({ ...current, sinceYear: value }))
+                  setError('')
+                }}
+                placeholder="Ex: 2023"
+                type="number"
+              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <label style={sectionEyebrowStyle}>Disponibilidade</label>
+                <ToggleField
+                  label={profile.availableForWork ? 'Disponivel para trabalho' : 'Indisponivel no momento'}
+                  checked={profile.availableForWork}
+                  onChange={(value) => {
+                    setProfile((current) => ({ ...current, availableForWork: value }))
+                    setError('')
+                  }}
+                />
+              </div>
+            </div>
+
+            {error ? <div style={{ color: 'oklch(65% 0.22 25)', fontSize: 13 }}>{error}</div> : null}
+
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', marginTop: 8 }}>
+              <span style={{ ...sectionEyebrowStyle, color: 'var(--green)' }}>Etapa 2: criacao do perfil principal</span>
+              <ButtonPrimary type="submit" disabled={!canSubmitProfile}>
+                {isSubmittingProfile ? 'finalizando portfolio...' : 'Finalizar criacao do portfolio'}
+              </ButtonPrimary>
+            </div>
+          </form>
+        )}
       </PanelCard>
     </div>
   )
@@ -2140,7 +2684,10 @@ function SkillsList({
               {items.map((skill) => (
                 <div key={skill.id} style={{ border: '1px solid var(--border)', padding: 14 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                    <strong>{skill.name}</strong>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                      <IconAsset iconName={skill.iconName} size={22} />
+                      <strong>{skill.name}</strong>
+                    </div>
                     <div style={{ display: 'flex', gap: 8 }}>
                       <IconButton icon="edit" label="Editar skill" onClick={() => onEdit(skill)} />
                       <IconButton
@@ -2191,7 +2738,7 @@ function SkillForm({
   onSave: (skill: Skill) => Promise<void>
 }) {
   const isNew = skill === null
-  const [form, setForm] = useState<Skill>(skill ?? { id: 0, name: '', category: '', level: 50 })
+  const [form, setForm] = useState<Skill>(skill ?? { id: 0, name: '', category: '', iconName: '', level: 50 })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -2241,6 +2788,12 @@ function SkillForm({
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             <TextField label="Nome" value={form.name} onChange={(value) => setForm({ ...form, name: value })} placeholder="React, TypeScript, Node.js..." />
             <TextField label="Categoria" value={form.category} onChange={(value) => setForm({ ...form, category: value })} placeholder="Frontend, Backend, DevOps..." />
+            <IconCombobox
+              label="Icone"
+              value={form.iconName}
+              onChange={(value) => setForm({ ...form, iconName: value })}
+              suggestedQuery={form.name || form.category}
+            />
             <TextField
               label="Nivel"
               value={String(form.level)}
@@ -2255,8 +2808,25 @@ function SkillForm({
           <PanelCard>
             <div style={sectionEyebrowStyle}>Preview</div>
             <div style={{ marginTop: 18 }}>
-              <div style={{ fontSize: 24, fontWeight: 700 }}>{form.name || 'Skill sem nome'}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div
+                  style={{
+                    width: 52,
+                    height: 52,
+                    display: 'grid',
+                    placeItems: 'center',
+                    border: '1px solid var(--border)',
+                    background: 'rgba(255,255,255,0.02)',
+                  }}
+                >
+                  <IconAsset iconName={form.iconName} size={30} />
+                </div>
+                <div style={{ fontSize: 24, fontWeight: 700 }}>{form.name || 'Skill sem nome'}</div>
+              </div>
               <div style={{ marginTop: 8, color: 'var(--text-muted)' }}>{form.category || 'Categoria ainda nao definida'}</div>
+              <div style={{ marginTop: 8, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-dim)' }}>
+                {form.iconName || 'icone nao selecionado'}
+              </div>
               <div style={{ marginTop: 18 }}>
                 <div style={{ height: 10, background: 'var(--bg2)', border: '1px solid var(--border)' }}>
                   <div style={{ width: `${Math.max(0, Math.min(100, form.level))}%`, height: '100%', background: 'linear-gradient(to right, var(--green), var(--cyan))' }} />
@@ -2281,11 +2851,13 @@ function ExperiencesSection({
   onSaveExperience,
   onDeleteExperience,
   onReorderExperiences,
+  onPrepareExperience,
 }: {
   experiences: Experience[]
   onSaveExperience: (experience: Experience) => Promise<void>
   onDeleteExperience: (id: number) => Promise<void>
   onReorderExperiences: (items: ReorderItemPayload[]) => Promise<void>
+  onPrepareExperience: (experience: Experience) => Promise<Experience>
 }) {
   const [editing, setEditing] = useState<Experience | null>(null)
   const [form, setForm] = useState<Experience>({ id: 0, role: '', company: '', period: '', desc: '', sortOrder: 1 })
@@ -2298,9 +2870,18 @@ function ExperiencesSection({
     setForm({ id: 0, role: '', company: '', period: '', desc: '', sortOrder: experiences.length + 1 })
   }
 
-  function startEdit(experience: Experience) {
-    setEditing(experience)
-    setForm(experience)
+  async function startEdit(experience: Experience) {
+    try {
+      setBusyId(experience.id)
+      setError('')
+      const prepared = await onPrepareExperience(experience)
+      setEditing(prepared)
+      setForm(prepared)
+    } catch (prepareError) {
+      setError(prepareError instanceof Error ? prepareError.message : 'Nao foi possivel carregar a experiencia para edicao.')
+    } finally {
+      setBusyId(null)
+    }
   }
 
   async function save() {
@@ -2371,7 +2952,7 @@ function ExperiencesSection({
                     <div style={{ marginTop: 6, fontSize: 13, color: 'var(--text-muted)' }}>{experience.company} · {experience.period}</div>
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <IconButton icon="edit" label="Editar experiencia" onClick={() => startEdit(experience)} />
+                    <IconButton icon="edit" label="Editar experiencia" onClick={() => void startEdit(experience)} />
                     <ButtonOutline small onClick={() => void move(experience.id, -1)}>subir</ButtonOutline>
                     <ButtonOutline small onClick={() => void move(experience.id, 1)}>descer</ButtonOutline>
                     <IconButton
@@ -2413,18 +2994,22 @@ function MessagesSection({
   onDeleteMessage,
 }: {
   messages: Message[]
-  onOpenMessage: (id: number) => Promise<void>
+  onOpenMessage: (id: number) => Promise<Message | null>
   onDeleteMessage: (id: number) => Promise<void>
 }) {
   const [selectedId, setSelectedId] = useState<number | null>(messages[0]?.id ?? null)
+  const [selectedMessage, setSelectedMessage] = useState<Message | null>(messages[0] ?? null)
   const [busyId, setBusyId] = useState<number | null>(null)
   const [error, setError] = useState('')
 
-  const selected = messages.find((message) => message.id === selectedId) ?? null
-
   useEffect(() => {
-    if (selectedId && messages.some((message) => message.id === selectedId)) return
+    if (selectedId && messages.some((message) => message.id === selectedId)) {
+      setSelectedMessage((current) => current && current.id === selectedId ? current : messages.find((message) => message.id === selectedId) ?? null)
+      return
+    }
+
     setSelectedId(messages[0]?.id ?? null)
+    setSelectedMessage(messages[0] ?? null)
   }, [messages, selectedId])
 
   async function openMessage(id: number) {
@@ -2433,7 +3018,8 @@ function MessagesSection({
     try {
       setBusyId(id)
       setError('')
-      await onOpenMessage(id)
+      const prepared = await onOpenMessage(id)
+      if (prepared) setSelectedMessage(prepared)
     } catch (openError) {
       setError(openError instanceof Error ? openError.message : 'Nao foi possivel abrir a mensagem.')
     } finally {
@@ -2491,24 +3077,24 @@ function MessagesSection({
         </PanelCard>
 
         <PanelCard accent="linear-gradient(to right, var(--cyan), transparent)">
-          {selected ? (
+          {selectedMessage ? (
             <>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                 <div>
                   <div style={sectionEyebrowStyle}>Mensagem selecionada</div>
-                  <h3 style={{ fontSize: 22, marginTop: 8 }}>{selected.name}</h3>
+                  <h3 style={{ fontSize: 22, marginTop: 8 }}>{selectedMessage.name}</h3>
                 </div>
-                <TagPill label={selected.read ? 'Lida' : 'Nova'} color={selected.read ? 'cyan' : 'green'} />
+                <TagPill label={selectedMessage.read ? 'Lida' : 'Nova'} color={selectedMessage.read ? 'cyan' : 'green'} />
               </div>
               <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)' }}>
                   <Icon name="mail" size={14} color="currentColor" />
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{selected.email}</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{selectedMessage.email}</span>
                 </div>
-                <div style={{ ...sectionEyebrowStyle }}>{selected.date}</div>
-                <p style={{ fontSize: 15, color: 'var(--text-muted)', lineHeight: 1.8 }}>{selected.msg}</p>
+                <div style={{ ...sectionEyebrowStyle }}>{selectedMessage.date}</div>
+                <p style={{ fontSize: 15, color: 'var(--text-muted)', lineHeight: 1.8 }}>{selectedMessage.msg}</p>
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <ButtonOutline onClick={() => void removeMessage(selected.id)}>{busyId === selected.id ? 'removendo...' : 'remover mensagem'}</ButtonOutline>
+                  <ButtonOutline onClick={() => void removeMessage(selectedMessage.id)}>{busyId === selectedMessage.id ? 'removendo...' : 'remover mensagem'}</ButtonOutline>
                 </div>
               </div>
             </>
@@ -2592,6 +3178,7 @@ function AboutSection({
   onUploadResume,
   onRemoveResume,
   onCreateStat,
+  onPrepareStat,
   onUpdateStat,
   onDeleteStat,
   onReorderStats,
@@ -2605,6 +3192,7 @@ function AboutSection({
   onUploadResume: (file: File) => Promise<void>
   onRemoveResume: () => Promise<void>
   onCreateStat: (payload: PortfolioStatSavePayload) => Promise<void>
+  onPrepareStat: (stat: StatItem) => Promise<StatItem>
   onUpdateStat: (id: number, payload: PortfolioStatSavePayload) => Promise<void>
   onDeleteStat: (id: number) => Promise<void>
   onReorderStats: (items: ReorderItemPayload[]) => Promise<void>
@@ -2613,6 +3201,8 @@ function AboutSection({
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [assetBusy, setAssetBusy] = useState<'image' | 'resume' | null>(null)
+  const [assetNames, setAssetNames] = useState({ image: '', resume: '' })
   const [statsBusy, setStatsBusy] = useState(false)
   const [editingStatId, setEditingStatId] = useState<number | null>(null)
   const [statForm, setStatForm] = useState<StatItem>({
@@ -2623,6 +3213,18 @@ function AboutSection({
     icon: '',
     sortOrder: stats.length + 1,
   })
+
+  useEffect(() => {
+    if (about.profileImageUrl) {
+      setAssetNames((current) => current.image ? { ...current, image: '' } : current)
+    }
+  }, [about.profileImageUrl])
+
+  useEffect(() => {
+    if (about.resumeFileUrl) {
+      setAssetNames((current) => current.resume ? { ...current, resume: '' } : current)
+    }
+  }, [about.resumeFileUrl])
 
   async function save() {
     try {
@@ -2654,23 +3256,32 @@ function AboutSection({
     if (!file) return
 
     try {
+      setAssetBusy(type)
+      setAssetNames((current) => ({ ...current, [type]: file.name }))
       setError('')
       if (type === 'image') await onUploadImage(file)
       else await onUploadResume(file)
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : 'Nao foi possivel enviar o arquivo.')
+      setAssetNames((current) => ({ ...current, [type]: '' }))
     } finally {
+      setAssetBusy(null)
       event.target.value = ''
     }
   }
 
   async function handleRemoveAsset(type: 'image' | 'resume') {
     try {
+      setAssetBusy(type)
       setError('')
       if (type === 'image') await onRemoveImage()
       else await onRemoveResume()
+      setAssetNames((current) => ({ ...current, [type]: '' }))
     } catch (removeError) {
       setError(removeError instanceof Error ? removeError.message : 'Nao foi possivel remover o arquivo.')
+    }
+    finally {
+      setAssetBusy(null)
     }
   }
 
@@ -2684,6 +3295,20 @@ function AboutSection({
       icon: '',
       sortOrder: stats.length + 1,
     })
+  }
+
+  async function editStat(stat: StatItem) {
+    try {
+      setStatsBusy(true)
+      setError('')
+      const prepared = await onPrepareStat(stat)
+      setStatForm(prepared)
+      setEditingStatId(prepared.id)
+    } catch (prepareError) {
+      setError(prepareError instanceof Error ? prepareError.message : 'Nao foi possivel carregar a estatistica para edicao.')
+    } finally {
+      setStatsBusy(false)
+    }
   }
 
   async function saveStat() {
@@ -2765,20 +3390,28 @@ function AboutSection({
               onChange={(availableForWork) => setAbout({ ...about, availableForWork })}
             />
             <div className="admin-grid-2">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <label style={sectionEyebrowStyle}>Foto de perfil</label>
-                <input type="file" accept="image/*" onChange={(event) => void handleFileChange(event, 'image')} />
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  <ButtonOutline onClick={() => void handleRemoveAsset('image')}>remover foto</ButtonOutline>
-                </div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <label style={sectionEyebrowStyle}>Curriculo</label>
-                <input type="file" accept=".pdf,.doc,.docx" onChange={(event) => void handleFileChange(event, 'resume')} />
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  <ButtonOutline onClick={() => void handleRemoveAsset('resume')}>remover curriculo</ButtonOutline>
-                </div>
-              </div>
+              <AssetUploadField
+                label="Foto de perfil"
+                hint="Nenhuma foto enviada ainda"
+                accept="image/*"
+                assetType="image"
+                currentUrl={about.profileImageUrl}
+                pendingName={assetNames.image}
+                busy={assetBusy === 'image'}
+                onPick={(event) => void handleFileChange(event, 'image')}
+                onRemove={() => void handleRemoveAsset('image')}
+              />
+              <AssetUploadField
+                label="Curriculo"
+                hint="Nenhum curriculo enviado ainda"
+                accept=".pdf,.doc,.docx"
+                assetType="resume"
+                currentUrl={about.resumeFileUrl}
+                pendingName={assetNames.resume}
+                busy={assetBusy === 'resume'}
+                onPick={(event) => void handleFileChange(event, 'resume')}
+                onRemove={() => void handleRemoveAsset('resume')}
+              />
             </div>
             {error ? <div style={{ color: 'oklch(65% 0.22 25)', fontSize: 13 }}>{error}</div> : null}
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -2855,10 +3488,7 @@ function AboutSection({
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <ButtonOutline
                       small
-                      onClick={() => {
-                        setStatForm(stat)
-                        setEditingStatId(stat.id)
-                      }}
+                      onClick={() => void editStat(stat)}
                     >
                       editar
                     </ButtonOutline>
@@ -2897,6 +3527,7 @@ function LinksSection({
   links,
   setLinks,
   onCreateLink,
+  onPrepareLink,
   onUpdateLink,
   onDeleteLink,
   onToggleLink,
@@ -2905,6 +3536,7 @@ function LinksSection({
   links: LinkItem[]
   setLinks: React.Dispatch<React.SetStateAction<LinkItem[]>>
   onCreateLink: (payload: SocialLinkSavePayload) => Promise<void>
+  onPrepareLink: (link: LinkItem) => Promise<LinkItem>
   onUpdateLink: (id: number, payload: SocialLinkSavePayload) => Promise<void>
   onDeleteLink: (id: number) => Promise<void>
   onToggleLink: (id: number) => Promise<void>
@@ -2931,6 +3563,21 @@ function LinksSection({
       else await onCreateLink(payload)
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Nao foi possivel salvar o link.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function editLink(link: LinkItem) {
+    if (link.id <= 0) return
+
+    try {
+      setBusyId(link.id)
+      setError('')
+      const prepared = await onPrepareLink(link)
+      setLinks((current) => current.map((item) => (item.id === link.id ? prepared : item)))
+    } catch (prepareError) {
+      setError(prepareError instanceof Error ? prepareError.message : 'Nao foi possivel carregar o link para edicao.')
     } finally {
       setBusyId(null)
     }
@@ -3071,6 +3718,7 @@ function LinksSection({
                 {link.url || 'sem url'}
               </a>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {link.id > 0 ? <ButtonOutline small onClick={() => void editLink(link)}>editar</ButtonOutline> : null}
                 <ButtonOutline small onClick={() => void moveLink(link.id, -1)}>{index === 0 ? 'topo' : 'subir'}</ButtonOutline>
                 <ButtonOutline small onClick={() => void moveLink(link.id, 1)}>{index === links.length - 1 ? 'base' : 'descer'}</ButtonOutline>
                 <ButtonOutline small onClick={() => void toggleLink(link)}>{busyId === link.id ? '...' : link.active ? 'ocultar' : 'ativar'}</ButtonOutline>
@@ -3293,7 +3941,7 @@ export function AdminPage() {
       setAdminError('')
 
       const [profile, stats] = await Promise.all([
-        getAdminPortfolioProfile(token),
+        prepareAdminPortfolioProfile(token),
         getAdminProfileStats(token),
       ])
 
@@ -3504,10 +4152,41 @@ export function AdminPage() {
   }
 
   async function createInitialPortfolio(payload: { name: string; portfolioUrl: string }) {
-    const token = requireToken()
-    setLoadedAdminSections(getEmptyLoadedSections())
-    await createPortfolioSetup(token, payload)
-    await bootstrapAdminSession(token)
+    try {
+      const token = requireToken()
+
+      setLoadedAdminSections(getEmptyLoadedSections())
+      setAdminError('')
+
+      await createPortfolioSetup(token, payload)
+      await bootstrapAdminSession(token)
+    } catch (createError) {
+      if (isApiError(createError) && createError.status === 401) {
+        handleUnauthorized()
+        return
+      }
+
+      throw createError
+    }
+  }
+
+  async function createInitialPortfolioProfile(payload: PortfolioProfileSavePayload) {
+    try {
+      requireManagementAccess()
+      const token = requireToken()
+
+      setAdminError('')
+      await saveAdminPortfolioProfile(token, payload)
+      markSectionsUnloaded('about')
+      await bootstrapAdminSession(token)
+    } catch (createError) {
+      if (isApiError(createError) && createError.status === 401) {
+        handleUnauthorized()
+        return
+      }
+
+      throw createError
+    }
   }
 
   function requireManagementAccess() {
@@ -3528,6 +4207,34 @@ export function AdminPage() {
       }
 
       throw actionError
+    }
+  }
+
+  async function runProtectedQuery<T>(query: (token: string) => Promise<T>) {
+    try {
+      requireManagementAccess()
+      const token = requireToken()
+      return await query(token)
+    } catch (queryError) {
+      if (isApiError(queryError) && queryError.status === 401) {
+        handleUnauthorized()
+        return null
+      }
+
+      throw queryError
+    }
+  }
+
+  async function loadPreparedRecord<T>(query: (token: string) => Promise<T>, fallback: T) {
+    try {
+      const prepared = await runProtectedQuery(query)
+      return prepared ?? fallback
+    } catch (prepareError) {
+      if (isApiError(prepareError) && (prepareError.status === 404 || prepareError.status === 405)) {
+        return fallback
+      }
+
+      throw prepareError
     }
   }
 
@@ -3563,6 +4270,15 @@ export function AdminPage() {
     })
   }
 
+  async function editProject(project: Project) {
+    const prepared = await loadPreparedRecord(
+      (token) => prepareAdminProject(token, project.id).then(mapProjectToItem),
+      project,
+    )
+
+    setProjectEdit(prepared)
+  }
+
   async function saveSkill(skill: Skill) {
     await runProtectedAction(async (token) => {
       const payload = mapSkillToPayload(skill, skills.length + 1)
@@ -3581,6 +4297,15 @@ export function AdminPage() {
       markSectionsUnloaded('skills', 'dashboard')
       await loadSkillsData(token)
     })
+  }
+
+  async function editSkill(skill: Skill) {
+    const prepared = await loadPreparedRecord(
+      (token) => prepareAdminSkill(token, skill.id).then(mapSkillToItem),
+      skill,
+    )
+
+    setSkillEdit(prepared)
   }
 
   async function saveExperience(experience: Experience) {
@@ -3611,15 +4336,31 @@ export function AdminPage() {
     })
   }
 
+  async function prepareExperienceForEdit(experience: Experience) {
+    return loadPreparedRecord(
+      (token) => prepareAdminExperience(token, experience.id).then(mapExperienceToItem),
+      experience,
+    )
+  }
+
   async function openMessage(id: number) {
     const selectedMessage = messages.find((message) => message.id === id)
-    if (!selectedMessage || selectedMessage.read) return
+    if (!selectedMessage) return null
 
-    await runProtectedAction(async (token) => {
-      await markAdminMessageAsRead(token, id)
-      setMessages((current) => current.map((message) => (message.id === id ? { ...message, read: true } : message)))
-      markSectionsUnloaded('dashboard')
-    })
+    const prepared = await loadPreparedRecord(
+      (token) => prepareAdminMessage(token, id).then(mapMessageToItem),
+      selectedMessage,
+    )
+
+    if (!prepared.read) {
+      await runProtectedAction(async (token) => {
+        await markAdminMessageAsRead(token, id)
+        setMessages((current) => current.map((message) => (message.id === id ? { ...message, read: true } : message)))
+        markSectionsUnloaded('dashboard')
+      })
+    }
+
+    return { ...prepared, read: true }
   }
 
   async function removeMessage(id: number) {
@@ -3704,6 +4445,13 @@ export function AdminPage() {
     })
   }
 
+  async function prepareStatForEdit(stat: StatItem) {
+    return loadPreparedRecord(
+      (token) => prepareAdminProfileStat(token, stat.id).then(mapStatToItem),
+      stat,
+    )
+  }
+
   async function updateStat(id: number, payload: PortfolioStatSavePayload) {
     await runProtectedAction(async (token) => {
       await updateAdminProfileStat(token, id, payload)
@@ -3734,6 +4482,13 @@ export function AdminPage() {
       markSectionsUnloaded('links')
       await loadLinksData(token)
     })
+  }
+
+  async function prepareLinkForEdit(link: LinkItem) {
+    return loadPreparedRecord(
+      (token) => prepareAdminSocialLink(token, link.id).then(mapLinkToItem),
+      link,
+    )
   }
 
   async function updateLink(id: number, payload: SocialLinkSavePayload) {
@@ -3778,7 +4533,7 @@ export function AdminPage() {
         <ProjectsList
           projects={projects}
           onCreate={() => setProjectEdit(null)}
-          onEdit={(project) => setProjectEdit(project)}
+          onEdit={(project) => void editProject(project)}
           onDelete={removeProject}
         />
       )
@@ -3793,7 +4548,7 @@ export function AdminPage() {
         <SkillsList
           skills={skills}
           onCreate={() => setSkillEdit(null)}
-          onEdit={(skill) => setSkillEdit(skill)}
+          onEdit={(skill) => void editSkill(skill)}
           onDelete={removeSkill}
         />
       )
@@ -3806,6 +4561,7 @@ export function AdminPage() {
           onSaveExperience={saveExperience}
           onDeleteExperience={removeExperience}
           onReorderExperiences={reorderExperiences}
+          onPrepareExperience={prepareExperienceForEdit}
         />
       )
     }
@@ -3830,6 +4586,7 @@ export function AdminPage() {
           onUploadResume={(file) => uploadProfileAsset(file, 'resume')}
           onRemoveResume={() => removeProfileAsset('resume')}
           onCreateStat={createStat}
+          onPrepareStat={prepareStatForEdit}
           onUpdateStat={updateStat}
           onDeleteStat={deleteStat}
           onReorderStats={reorderStats}
@@ -3843,6 +4600,7 @@ export function AdminPage() {
           links={links}
           setLinks={setLinks}
           onCreateLink={createLink}
+          onPrepareLink={prepareLinkForEdit}
           onUpdateLink={updateLink}
           onDeleteLink={deleteLink}
           onToggleLink={toggleLink}
@@ -3878,7 +4636,11 @@ export function AdminPage() {
     return (
       <>
         {visibleAdminError ? <AdminToast message={visibleAdminError} onClose={() => setDismissedAdminError(true)} /> : null}
-        <PortfolioSetupScreen currentUser={currentUser} onCreate={createInitialPortfolio} />
+        <PortfolioSetupScreen
+          currentUser={currentUser}
+          onCreateSetup={createInitialPortfolio}
+          onCreateProfile={createInitialPortfolioProfile}
+        />
       </>
     )
   }

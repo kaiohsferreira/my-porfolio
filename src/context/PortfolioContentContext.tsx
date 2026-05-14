@@ -2,13 +2,18 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import {
   getPortfolioUrl,
   getPublicPortfolioProfile,
+  getPublicSkills,
   getPublicSocialLinks,
   isApiError,
+  type AdminSkill,
   type PortfolioProfilePublic,
 } from '@/lib/portfolio-api'
+import type { Skill } from '@/types'
+import { SKILLS_DATA } from '@/data/portfolio'
 
 interface PortfolioContentContextValue {
   profile: PortfolioProfilePublic
+  skills: Skill[]
   loading: boolean
   error: string | null
   portfolioUrl: string
@@ -42,8 +47,29 @@ const DEFAULT_PROFILE: PortfolioProfilePublic = {
 
 const PortfolioContentContext = createContext<PortfolioContentContextValue | null>(null)
 
+function mapPublicSkill(skill: AdminSkill): Skill {
+  return {
+    id: skill.id,
+    name: skill.name,
+    category: skill.category || 'Sem categoria',
+    iconName: skill.iconName || '',
+    level: skill.level,
+    sortOrder: skill.sortOrder,
+  }
+}
+
+const DEFAULT_SKILLS: Skill[] = SKILLS_DATA.map((skill, index) => ({
+  id: index + 1,
+  name: skill.name,
+  category: 'Skills',
+  iconName: skill.iconName,
+  level: 0,
+  sortOrder: index,
+}))
+
 export function PortfolioContentProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState(DEFAULT_PROFILE)
+  const [skills, setSkills] = useState<Skill[]>(DEFAULT_SKILLS)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [portfolioUrl] = useState(() => getPortfolioUrl())
@@ -53,9 +79,10 @@ export function PortfolioContentProvider({ children }: { children: ReactNode }) 
       setLoading(true)
       setError(null)
 
-      const [nextProfile, socialLinks] = await Promise.all([
+      const [nextProfile, socialLinks, publicSkillsResult] = await Promise.all([
         getPublicPortfolioProfile(portfolioUrl),
         getPublicSocialLinks(portfolioUrl),
+        getPublicSkills(portfolioUrl).catch(() => null),
       ])
 
       setProfile({
@@ -63,12 +90,18 @@ export function PortfolioContentProvider({ children }: { children: ReactNode }) 
         ...nextProfile,
         socialLinks: socialLinks.length ? socialLinks : nextProfile.socialLinks,
       })
+      setSkills(
+        publicSkillsResult?.length
+          ? publicSkillsResult.map(mapPublicSkill).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+          : DEFAULT_SKILLS,
+      )
     } catch (loadError) {
       const message =
         isApiError(loadError) ? loadError.message : 'Nao foi possivel carregar os dados publicos do portfolio.'
 
       setError(message)
       setProfile(DEFAULT_PROFILE)
+      setSkills(DEFAULT_SKILLS)
     } finally {
       setLoading(false)
     }
@@ -82,6 +115,7 @@ export function PortfolioContentProvider({ children }: { children: ReactNode }) 
     <PortfolioContentContext.Provider
       value={{
         profile,
+        skills,
         loading,
         error,
         portfolioUrl,

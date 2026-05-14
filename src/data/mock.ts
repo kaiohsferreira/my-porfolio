@@ -8,10 +8,10 @@ export const MOCK_PROJECTS: Project[] = [
 ]
 
 export const MOCK_SKILLS: Skill[] = [
-  { id: 1, name: 'TypeScript', category: 'Linguagens', level: 92, sortOrder: 1 },
-  { id: 2, name: 'React', category: 'Frontend', level: 90, sortOrder: 2 },
-  { id: 3, name: 'Node.js', category: 'Backend', level: 85, sortOrder: 3 },
-  { id: 4, name: 'PostgreSQL', category: 'Banco de Dados', level: 78, sortOrder: 4 },
+  { id: 1, name: 'TypeScript', category: 'Linguagens', iconName: 'typescript', level: 92, sortOrder: 1 },
+  { id: 2, name: 'React', category: 'Frontend', iconName: 'react', level: 90, sortOrder: 2 },
+  { id: 3, name: 'Node.js', category: 'Backend', iconName: 'nodejs', level: 85, sortOrder: 3 },
+  { id: 4, name: 'PostgreSQL', category: 'Banco de Dados', iconName: 'postgresql', level: 78, sortOrder: 4 },
 ]
 
 export const MOCK_EXPERIENCES: Experience[] = [
