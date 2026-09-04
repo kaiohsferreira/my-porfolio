@@ -4393,7 +4393,7 @@ export function AdminPage() {
         }
 
         await resetAdminPassword(token, {
-          currentPassword: settings.currentPassword.trim(),
+          oldPassword: settings.currentPassword.trim(),
           newPassword: settings.newPassword.trim(),
         })
       }
