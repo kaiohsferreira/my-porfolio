@@ -1,19 +1,23 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import {
   getPortfolioUrl,
+  getPortfolioUrlCandidates,
   getPublicPortfolioProfile,
+  getPublicProjects,
   getPublicSkills,
   getPublicSocialLinks,
   isApiError,
+  type AdminProject,
   type AdminSkill,
   type PortfolioProfilePublic,
 } from '@/lib/portfolio-api'
-import type { Skill } from '@/types'
-import { SKILLS_DATA } from '@/data/portfolio'
+import type { PortfolioProject, Skill } from '@/types'
+import { PROJECTS_DATA, SKILLS_DATA } from '@/data/portfolio'
 
 interface PortfolioContentContextValue {
   profile: PortfolioProfilePublic
   skills: Skill[]
+  projects: PortfolioProject[]
   loading: boolean
   error: string | null
   portfolioUrl: string
@@ -67,33 +71,97 @@ const DEFAULT_SKILLS: Skill[] = SKILLS_DATA.map((skill, index) => ({
   sortOrder: index,
 }))
 
+/** Catálogo local, usado só quando a API não devolve nenhum projeto publicado. */
+const DEFAULT_PROJECTS: PortfolioProject[] = PROJECTS_DATA.map((project) => ({
+  id: project.id,
+  name: project.name,
+  type: project.type,
+  desc: project.desc,
+  tags: project.tags,
+  repositoryUrl: null,
+  liveUrl: null,
+  featured: false,
+}))
+
+/**
+ * O backend guarda uma descrição só por projeto, sem par pt/en como o perfil tem.
+ * Até existir esse campo, o mesmo texto serve os dois idiomas.
+ */
+/**
+ * Busca o conteúdo público na primeira URL candidata que a API reconhecer.
+ * Só um 404 (portfólio não encontrado naquela URL) faz tentar a próxima; qualquer outra
+ * falha sobe, para não mascarar API fora do ar como "portfólio inexistente".
+ */
+async function loadFromFirstResolvableUrl() {
+  const candidates = getPortfolioUrlCandidates()
+  let lastNotFound: unknown = null
+
+  for (const url of candidates) {
+    try {
+      const [nextProfile, socialLinks, publicSkillsResult, publicProjectsResult] = await Promise.all([
+        getPublicPortfolioProfile(url),
+        getPublicSocialLinks(url).catch(() => null),
+        getPublicSkills(url).catch(() => null),
+        getPublicProjects(url).catch(() => null),
+      ])
+
+      return { url, nextProfile, socialLinks, publicSkillsResult, publicProjectsResult }
+    } catch (error) {
+      if (isApiError(error) && error.status === 404) {
+        lastNotFound = error
+        continue
+      }
+
+      throw error
+    }
+  }
+
+  throw lastNotFound ?? new Error('Nenhuma URL de portfolio pode ser resolvida.')
+}
+
+function mapPublicProject(project: AdminProject): PortfolioProject {
+  const description = project.description?.trim() || ''
+
+  return {
+    id: project.id,
+    name: project.title,
+    type: null,
+    desc: { pt: description, en: description },
+    tags: project.tags ?? [],
+    repositoryUrl: project.repositoryUrl?.trim() || null,
+    liveUrl: project.liveUrl?.trim() || null,
+    featured: Boolean(project.isFeatured),
+  }
+}
+
 export function PortfolioContentProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState(DEFAULT_PROFILE)
   const [skills, setSkills] = useState<Skill[]>(DEFAULT_SKILLS)
+  const [projects, setProjects] = useState<PortfolioProject[]>(DEFAULT_PROJECTS)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [portfolioUrl] = useState(() => getPortfolioUrl())
+  const [portfolioUrl, setPortfolioUrl] = useState(() => getPortfolioUrl())
 
   async function loadProfile() {
     try {
       setLoading(true)
       setError(null)
 
-      const [nextProfile, socialLinks, publicSkillsResult] = await Promise.all([
-        getPublicPortfolioProfile(portfolioUrl),
-        getPublicSocialLinks(portfolioUrl),
-        getPublicSkills(portfolioUrl).catch(() => null),
-      ])
+      const { url, nextProfile, socialLinks, publicSkillsResult, publicProjectsResult } = await loadFromFirstResolvableUrl()
+      setPortfolioUrl(url)
 
       setProfile({
         ...DEFAULT_PROFILE,
         ...nextProfile,
-        socialLinks: socialLinks.length ? socialLinks : nextProfile.socialLinks,
+        socialLinks: socialLinks?.length ? socialLinks : nextProfile.socialLinks,
       })
       setSkills(
         publicSkillsResult?.length
           ? publicSkillsResult.map(mapPublicSkill).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
           : DEFAULT_SKILLS,
+      )
+      setProjects(
+        publicProjectsResult?.length ? publicProjectsResult.map(mapPublicProject) : DEFAULT_PROJECTS,
       )
     } catch (loadError) {
       const message =
@@ -102,20 +170,24 @@ export function PortfolioContentProvider({ children }: { children: ReactNode }) 
       setError(message)
       setProfile(DEFAULT_PROFILE)
       setSkills(DEFAULT_SKILLS)
+      setProjects(DEFAULT_PROJECTS)
     } finally {
       setLoading(false)
     }
   }
 
+  // Carrega uma vez na montagem. A URL do portfólio é resolvida dentro do próprio load
+  // (ver loadFromFirstResolvableUrl), então depender dela aqui recarregaria em vão.
   useEffect(() => {
     void loadProfile()
-  }, [portfolioUrl])
+  }, [])
 
   return (
     <PortfolioContentContext.Provider
       value={{
         profile,
         skills,
+        projects,
         loading,
         error,
         portfolioUrl,

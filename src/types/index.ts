@@ -12,6 +12,22 @@ export interface Project {
   updatedAt?: string | null
 }
 
+/**
+ * Projeto como a vitrine pública o consome. Serve tanto ao que vem da API quanto ao
+ * catálogo local usado como fallback, para o carrossel não ter que conhecer as duas formas.
+ */
+export interface PortfolioProject {
+  id: number
+  name: string
+  /** Rótulo curto acima do nome. Só o catálogo local tem; da API vem null. */
+  type: { pt: string; en: string } | null
+  desc: { pt: string; en: string }
+  tags: string[]
+  repositoryUrl: string | null
+  liveUrl: string | null
+  featured: boolean
+}
+
 export interface Skill {
   id: number
   name: string

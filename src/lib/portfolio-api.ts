@@ -254,8 +254,13 @@ export interface VisitorStatsAdmin {
   monthlyChart: VisitorMonthlyPoint[]
 }
 
+/**
+ * Os nomes aqui precisam bater com ResetPasswordSignInVO no backend
+ * (OldPassword / NewPassword). O ASP.NET casa por nome, sem diferenciar maiúsculas,
+ * então oldPassword/newPassword servem — currentPassword, não.
+ */
 export interface ResetPasswordPayload {
-  currentPassword: string
+  oldPassword: string
   newPassword: string
 }
 
@@ -298,6 +303,20 @@ export function getPortfolioUrl() {
       ? parts.slice(1).join('.')
       : hostname.toLowerCase()
   return `${normalizedProtocol}//${normalizedHost}`
+}
+
+/**
+ * URLs a tentar, em ordem, para achar o portfólio na API.
+ *
+ * O backend casa a URL por igualdade exata contra o campo cadastrado, então o domínio de
+ * onde o site é servido precisa ser o mesmo que está no cadastro. Quando não é (deploy
+ * num domínio novo, preview da Vercel, .com contra .com.br), a derivação pelo hostname
+ * devolve 404 e o site cairia calado no conteúdo de exemplo. Tentar também a URL canônica
+ * evita isso. Defina VITE_PORTFOLIO_URL para fixar uma só e pular a tentativa.
+ */
+export function getPortfolioUrlCandidates() {
+  const candidates = [getPortfolioUrl(), DEFAULT_PORTFOLIO_URL]
+  return candidates.filter((url, index) => url && candidates.indexOf(url) === index)
 }
 
 function getDefaultHeaders(token?: string) {
@@ -483,6 +502,16 @@ export async function getPublicSocialLinks(portfolioUrl = getPortfolioUrl()) {
 export async function getPublicSkills(portfolioUrl = getPortfolioUrl()) {
   const encodedUrl = encodeURIComponent(portfolioUrl)
   return apiRequest<AdminSkill[]>(`/PublicSkill/GetAll?url=${encodedUrl}`)
+}
+
+/** Somente os projetos com status PUBLICADO. O backend filtra; rascunhos nunca saem daqui. */
+export async function getPublicProjects(portfolioUrl = getPortfolioUrl()) {
+  const encodedUrl = encodeURIComponent(portfolioUrl)
+  const projects = await apiRequest<AdminProject[]>(`/PublicProject/GetPublished?url=${encodedUrl}`)
+  return (projects ?? []).map((project) => ({
+    ...project,
+    tags: project.tags ?? [],
+  }))
 }
 
 export async function sendPublicContactMessage(payload: PublicContactMessagePayload, portfolioUrl = getPortfolioUrl()) {
