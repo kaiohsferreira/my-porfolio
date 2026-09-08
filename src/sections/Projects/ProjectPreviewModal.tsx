@@ -234,7 +234,10 @@ export function ProjectPreviewModal({
             src={project.liveUrl}
             title={`${t('Prévia de', 'Preview of')} ${project.name}`}
             onLoad={() => setLoaded(true)}
-            loading="lazy"
+            // Sem loading="lazy" de propósito. O modal é um overlay fixo criado por portal,
+            // e a heurística de proximidade da viewport não o considera elegível: o frame
+            // simplesmente nunca começava a carregar e a área ficava vazia. Aqui o lazy não
+            // economizaria nada — o iframe só existe enquanto o modal está aberto.
             referrerPolicy="no-referrer"
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
             style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
