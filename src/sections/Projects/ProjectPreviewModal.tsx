@@ -1,14 +1,25 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useLanguage } from '@/context/LanguageContext'
 import type { PortfolioProject } from '@/types'
 
 /**
+ * Acima da navbar (z-1000) e da textura de ruído (z-9990), abaixo do cursor
+ * customizado (z-9998/9999), que deve continuar visível sobre o modal.
+ */
+const Z_MODAL = 9995
+
+/**
  * Mostra o projeto rodando dentro do portfólio, sem tirar o visitante do site.
  *
- * O iframe depende do site alvo permitir ser embutido: quem responde X-Frame-Options ou
- * CSP frame-ancestors é recusado pelo navegador, e não há como detectar isso de forma
- * confiável a partir daqui (o conteúdo é de outra origem). Por isso o aviso e o link para
- * abrir em aba nova ficam sempre visíveis, em vez de aparecerem só depois de falhar.
+ * O iframe depende de o site alvo permitir ser embutido: quem responde X-Frame-Options ou
+ * CSP frame-ancestors é recusado pelo navegador, que ainda assim dispara `load` e deixa a
+ * própria página de erro no lugar — aquela área em branco.
+ *
+ * Essa recusa NÃO é detectável daqui: o Chrome trata até a própria página de erro como outra
+ * origem, então ler `contentWindow.location` lança SecurityError tanto no frame recusado
+ * quanto no que carregou. Por isso o link de abrir em aba nova e o aviso do rodapé ficam
+ * sempre visíveis, em vez de aparecerem só depois de uma falha que não temos como perceber.
  */
 export function ProjectPreviewModal({
   project,
@@ -20,6 +31,18 @@ export function ProjectPreviewModal({
   const { t } = useLanguage()
   const closeRef = useRef<HTMLButtonElement>(null)
   const [loaded, setLoaded] = useState(false)
+  const [stalled, setStalled] = useState(false)
+
+  /** Mostra a saída alternativa quando o projeto não vai aparecer aqui dentro. */
+  const unavailable = stalled && !loaded
+
+  // Se o site não der sinal nesse tempo, troca o "Carregando" por uma saída útil em vez de
+  // deixar o visitante olhando para um spinner eterno.
+  useEffect(() => {
+    if (loaded) return
+    const timer = window.setTimeout(() => setStalled(true), 8000)
+    return () => window.clearTimeout(timer)
+  }, [loaded])
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -37,9 +60,12 @@ export function ProjectPreviewModal({
     }
   }, [onClose])
 
-  if (!project.liveUrl) return null
+  if (!project.liveUrl || typeof document === 'undefined') return null
 
-  return (
+  // Renderizado num portal no body. Além de resolver a sobreposição da navbar, tira o modal
+  // de dentro da seção: qualquer ancestral com transform/filter/will-change viraria bloco de
+  // contenção e quebraria o position:fixed — o carrossel logo acima já usa will-change.
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -48,12 +74,12 @@ export function ProjectPreviewModal({
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 200,
+        zIndex: Z_MODAL,
         background: 'rgba(0,0,0,0.82)',
         backdropFilter: 'blur(6px)',
         display: 'flex',
         flexDirection: 'column',
-        padding: 'clamp(12px, 3vw, 32px)',
+        padding: 'clamp(10px, 2.5vw, 28px)',
       }}
     >
       <div
@@ -67,27 +93,40 @@ export function ProjectPreviewModal({
           minHeight: 0,
         }}
       >
-        {/* Barra superior */}
+        {/* Barra superior. Em tela estreita o título ocupa a linha inteira e os dois
+            controles descem juntos, em vez de espremerem o nome do projeto. */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 14,
-            padding: '12px 16px',
+            gap: '10px 14px',
+            padding: '10px 14px',
             borderBottom: '1px solid var(--border)',
             background: 'var(--surface)',
             flexWrap: 'wrap',
+            flex: '0 0 auto',
           }}
         >
           <span
             className="font-mono"
-            style={{ fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--green)' }}
+            style={{ fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--green)', flex: '0 0 auto' }}
           >
             {t('Prévia', 'Preview')}
           </span>
 
           <span
-            style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginRight: 'auto' }}
+            title={project.name}
+            style={{
+              fontSize: 14,
+              fontWeight: 600,
+              color: 'var(--text)',
+              marginRight: 'auto',
+              flex: '1 1 12ch',
+              minWidth: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
           >
             {project.name}
           </span>
@@ -137,14 +176,19 @@ export function ProjectPreviewModal({
 
         {/* Conteúdo */}
         <div style={{ position: 'relative', flex: 1, minHeight: 0, background: 'var(--bg2)' }}>
-          {!loaded ? (
+          {!loaded || unavailable ? (
             <div
               className="font-mono"
               style={{
                 position: 'absolute',
                 inset: 0,
+                zIndex: 1,
+                // Opaco: enquanto não há sinal de carga, esconde o frame em branco por baixo.
+                background: 'var(--bg2)',
                 display: 'grid',
                 placeItems: 'center',
+                alignContent: 'center',
+                gap: 16,
                 fontSize: 12,
                 letterSpacing: '0.1em',
                 textTransform: 'uppercase',
@@ -153,7 +197,36 @@ export function ProjectPreviewModal({
                 textAlign: 'center',
               }}
             >
-              {t('Carregando o projeto…', 'Loading the project…')}
+              {unavailable ? (
+                <>
+                  <span style={{ maxWidth: '46ch', lineHeight: 1.7 }}>
+                    {t(
+                      'Este projeto não pôde ser exibido aqui dentro.',
+                      'This project could not be displayed inside the page.',
+                    )}
+                  </span>
+                  <a
+                    href={project.liveUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      fontSize: 11,
+                      letterSpacing: '0.08em',
+                      color: 'var(--green)',
+                      textDecoration: 'none',
+                      border: '1px solid var(--green)',
+                      padding: '12px 18px',
+                      minHeight: 44,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                    }}
+                  >
+                    {t('Abrir em nova aba', 'Open in new tab')} ↗
+                  </a>
+                </>
+              ) : (
+                <span>{t('Carregando o projeto…', 'Loading the project…')}</span>
+              )}
             </div>
           ) : null}
 
@@ -187,6 +260,7 @@ export function ProjectPreviewModal({
           )}
         </p>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
