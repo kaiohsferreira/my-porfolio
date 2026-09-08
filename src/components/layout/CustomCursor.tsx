@@ -26,8 +26,38 @@ export function CustomCursor() {
     let mx = 0, my = 0, rx = 0, ry = 0
     let rafId: number
 
-    const onMove = (e: MouseEvent) => { mx = e.clientX; my = e.clientY }
+    /**
+     * Some o cursor desenhado enquanto o ponteiro está sobre um iframe (a prévia de projeto).
+     *
+     * Dentro do iframe quem recebe os eventos é o documento embutido, então o mousemove daqui
+     * para de chegar e o ponto ficaria parado no meio da tela, como se tivesse travado. O
+     * documento embutido tem cursor próprio — o `cursor: none` global não atravessa para
+     * dentro dele —, então o visitante não fica sem cursor nenhum.
+     */
+    const isFrame = (target: EventTarget | null) =>
+      target instanceof HTMLElement && target.tagName === 'IFRAME'
+
+    const setHidden = (hidden: boolean) => {
+      // String vazia devolve o valor da folha de estilo (o anel tem opacidade 0.5).
+      cursor.style.opacity = hidden ? '0' : ''
+      ring.style.opacity = hidden ? '0' : ''
+    }
+
+    const onMove = (e: MouseEvent) => {
+      mx = e.clientX
+      my = e.clientY
+      // Receber mousemove significa que o ponteiro voltou para o documento principal. Isso
+      // também religa o cursor quando o modal é fechado com o ponteiro em cima do iframe,
+      // caso em que o mouseout nunca chega porque o elemento deixa de existir.
+      setHidden(isFrame(e.target))
+    }
+
+    const onOver = (e: MouseEvent) => {
+      if (isFrame(e.target)) setHidden(true)
+    }
+
     document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseover', onOver)
 
     function animate() {
       cursor!.style.left = mx + 'px'
@@ -42,6 +72,7 @@ export function CustomCursor() {
 
     return () => {
       document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseover', onOver)
       cancelAnimationFrame(rafId)
     }
   }, [enabled])
