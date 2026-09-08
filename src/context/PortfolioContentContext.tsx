@@ -81,7 +81,22 @@ const DEFAULT_PROJECTS: PortfolioProject[] = PROJECTS_DATA.map((project) => ({
   repositoryUrl: null,
   liveUrl: null,
   featured: false,
+  coverImageUrl: null,
+  canPreview: false,
 }))
+
+/** Compara duas URLs por host, ignorando www e diferença de maiúsculas. */
+function isSameSite(a: string | null, b: string | null) {
+  if (!a || !b) return false
+
+  try {
+    const hostA = new URL(a).hostname.toLowerCase().replace(/^www\./, '')
+    const hostB = new URL(b).hostname.toLowerCase().replace(/^www\./, '')
+    return hostA === hostB
+  } catch {
+    return false
+  }
+}
 
 /**
  * O backend guarda uma descrição só por projeto, sem par pt/en como o perfil tem.
@@ -121,6 +136,7 @@ async function loadFromFirstResolvableUrl() {
 
 function mapPublicProject(project: AdminProject): PortfolioProject {
   const description = project.description?.trim() || ''
+  const liveUrl = project.liveUrl?.trim() || null
 
   return {
     id: project.id,
@@ -129,8 +145,10 @@ function mapPublicProject(project: AdminProject): PortfolioProject {
     desc: { pt: description, en: description },
     tags: project.tags ?? [],
     repositoryUrl: project.repositoryUrl?.trim() || null,
-    liveUrl: project.liveUrl?.trim() || null,
+    liveUrl,
     featured: Boolean(project.isFeatured),
+    coverImageUrl: project.coverImageUrl?.trim() || null,
+    canPreview: Boolean(liveUrl),
   }
 }
 
@@ -160,9 +178,13 @@ export function PortfolioContentProvider({ children }: { children: ReactNode }) 
           ? publicSkillsResult.map(mapPublicSkill).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
           : DEFAULT_SKILLS,
       )
-      setProjects(
-        publicProjectsResult?.length ? publicProjectsResult.map(mapPublicProject) : DEFAULT_PROJECTS,
-      )
+      // O card do próprio portfólio sai da lista: ele apontaria para o site em que o
+      // visitante já está e não pode ser embutido dentro de si mesmo.
+      const visibleProjects = (publicProjectsResult ?? [])
+        .map(mapPublicProject)
+        .filter((project) => !isSameSite(project.liveUrl, url))
+
+      setProjects(visibleProjects.length ? visibleProjects : DEFAULT_PROJECTS)
     } catch (loadError) {
       const message =
         isApiError(loadError) ? loadError.message : 'Nao foi possivel carregar os dados publicos do portfolio.'

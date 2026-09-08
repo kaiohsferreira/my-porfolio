@@ -40,6 +40,7 @@ import {
   prepareAdminSkill,
   prepareAdminSocialLink,
   removeAdminProfileImage,
+  removeAdminProjectCover,
   removeAdminResume,
   reorderAdminExperiences,
   reorderAdminProfileStats,
@@ -407,7 +408,8 @@ function mapProjectToItem(project: AdminProject): Project {
     liveUrl: project.liveUrl || '',
     featured: project.isFeatured,
     status: project.status === 'PUBLICADO' ? 'published' : 'draft',
-    thumb: null,
+    thumb: project.coverImageUrl || null,
+    coverFile: null,
     createdAt: project.createdAt || null,
     updatedAt: project.updatedAt || null,
   }
@@ -422,6 +424,7 @@ function mapProjectToPayload(project: Project): AdminProjectSavePayload {
     tags: project.tags,
     status: project.status === 'published' ? 'PUBLICADO' : 'RASCUNHO',
     isFeatured: project.featured,
+    coverImage: project.coverFile ?? null,
   }
 }
 
@@ -2491,10 +2494,12 @@ function ProjectForm({
   project,
   onBack,
   onSave,
+  onRemoveCover,
 }: {
   project: Project | null
   onBack: () => void
   onSave: (project: Project) => Promise<void>
+  onRemoveCover: (id: number) => Promise<void>
 }) {
   const isNew = project === null
   const [form, setForm] = useState<Project>(
@@ -2508,10 +2513,57 @@ function ProjectForm({
       featured: false,
       status: 'draft',
       thumb: null,
+      coverFile: null,
     },
   )
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [coverBusy, setCoverBusy] = useState(false)
+
+  async function pickCover(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      setError('A capa precisa ser um arquivo de imagem.')
+      return
+    }
+
+    try {
+      setCoverBusy(true)
+      setError('')
+      const base64 = await readFileAsDataUrl(file)
+      setForm((current) => ({
+        ...current,
+        coverFile: { name: file.name, file: base64 },
+        thumb: base64,
+      }))
+    } catch (readError) {
+      setError(readError instanceof Error ? readError.message : 'Nao foi possivel ler a imagem.')
+    } finally {
+      setCoverBusy(false)
+    }
+  }
+
+  async function dropCover() {
+    // Projeto ainda nao salvo so tem a capa em memoria; nao ha o que remover no servidor.
+    if (form.id <= 0) {
+      setForm((current) => ({ ...current, coverFile: null, thumb: null }))
+      return
+    }
+
+    try {
+      setCoverBusy(true)
+      setError('')
+      await onRemoveCover(form.id)
+      setForm((current) => ({ ...current, coverFile: null, thumb: null }))
+    } catch (removeError) {
+      setError(removeError instanceof Error ? removeError.message : 'Nao foi possivel remover a capa.')
+    } finally {
+      setCoverBusy(false)
+    }
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -2562,6 +2614,17 @@ function ProjectForm({
             <TextField label="Repositorio" value={form.repo} onChange={(value) => setForm({ ...form, repo: value })} placeholder="github.com/usuario/repo" />
             <TextField label="URL ao vivo" value={form.liveUrl} onChange={(value) => setForm({ ...form, liveUrl: value })} placeholder="https://site.com/projeto" />
             <TagInput label="Tags" tags={form.tags} onChange={(tags) => setForm({ ...form, tags })} />
+            <AssetUploadField
+              label="Capa do projeto"
+              hint="Imagem exibida no card do site. Recomendado 16:9, por exemplo 1280x720."
+              accept="image/*"
+              assetType="image"
+              currentUrl={form.thumb}
+              pendingName={form.coverFile?.name ?? ''}
+              busy={coverBusy}
+              onPick={pickCover}
+              onRemove={dropCover}
+            />
           </div>
         </PanelCard>
 
@@ -4250,6 +4313,14 @@ export function AdminPage() {
     })
   }
 
+  async function removeProjectCover(id: number) {
+    await runProtectedAction(async (token) => {
+      await removeAdminProjectCover(token, id)
+      markSectionsUnloaded('projects', 'dashboard')
+      await loadProjectsData(token)
+    })
+  }
+
   async function saveProject(project: Project) {
     await runProtectedAction(async (token) => {
       const payload = mapProjectToPayload(project)
@@ -4526,7 +4597,7 @@ export function AdminPage() {
   function renderContent() {
     if (page === 'projects') {
       if (projectEdit !== undefined) {
-        return <ProjectForm project={projectEdit} onBack={() => setProjectEdit(undefined)} onSave={saveProject} />
+        return <ProjectForm project={projectEdit} onBack={() => setProjectEdit(undefined)} onSave={saveProject} onRemoveCover={removeProjectCover} />
       }
 
       return (

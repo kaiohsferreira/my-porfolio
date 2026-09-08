@@ -171,6 +171,8 @@ export interface AdminProject {
   tags: string[]
   status: 'RASCUNHO' | 'PUBLICADO'
   isFeatured: boolean
+  /** URL da imagem de capa. Null quando o projeto não tem capa enviada. */
+  coverImageUrl?: string | null
   createdAt?: string | null
   updatedAt?: string | null
 }
@@ -183,6 +185,8 @@ export interface AdminProjectSavePayload {
   tags: string[]
   status: 'RASCUNHO' | 'PUBLICADO'
   isFeatured: boolean
+  /** Capa em base64. Quando ausente, o backend mantém a capa atual. */
+  coverImage?: FilePayload | null
 }
 
 export interface AdminSkill {
@@ -700,6 +704,21 @@ export async function updateAdminProject(token: string, id: number, payload: Adm
 
 export async function deleteAdminProject(token: string, id: number) {
   return apiRequest<void>(`/Project/Delete/${id}`, {
+    method: 'POST',
+    token,
+  })
+}
+
+export async function uploadAdminProjectCover(token: string, id: number, payload: FilePayload) {
+  return apiRequest<void>(`/Project/UploadCover/${id}`, {
+    method: 'POST',
+    token,
+    body: payload,
+  })
+}
+
+export async function removeAdminProjectCover(token: string, id: number) {
+  return apiRequest<void>(`/Project/RemoveCover/${id}`, {
     method: 'POST',
     token,
   })

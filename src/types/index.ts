@@ -7,7 +7,10 @@ export interface Project {
   liveUrl: string
   featured: boolean
   status: 'published' | 'draft'
+  /** URL da capa vinda da API. */
   thumb: string | null
+  /** Arquivo de capa ainda nao enviado, so no formulario. */
+  coverFile?: { file: string; name: string } | null
   createdAt?: string | null
   updatedAt?: string | null
 }
@@ -26,6 +29,10 @@ export interface PortfolioProject {
   repositoryUrl: string | null
   liveUrl: string | null
   featured: boolean
+  /** Capa enviada no painel. Null cai no marcador gráfico. */
+  coverImageUrl: string | null
+  /** Falso para o card do próprio portfólio, que não pode ser embutido em si mesmo. */
+  canPreview: boolean
 }
 
 export interface Skill {

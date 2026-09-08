@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useLanguage } from '@/context/LanguageContext'
 import { usePortfolioContent } from '@/context/PortfolioContentContext'
 import { SectionHeader } from '@/components/ui/SectionHeader'
+import { ProjectPreviewModal } from './ProjectPreviewModal'
+import type { PortfolioProject } from '@/types'
 
 const PLACEHOLDER_ICONS = [
   <svg key="1" width="48" height="48" viewBox="0 0 48 48" aria-hidden="true"><rect x="4" y="8" width="40" height="28" rx="2" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="1.5"/><rect x="16" y="36" width="16" height="4" fill="rgba(255,255,255,0.06)"/><rect x="4" y="12" width="40" height="1" fill="rgba(255,255,255,0.06)"/></svg>,
@@ -22,6 +24,7 @@ export function Projects() {
   const { lang, t } = useLanguage()
   const { projects } = usePortfolioContent()
   const [current, setCurrent] = useState(0)
+  const [preview, setPreview] = useState<PortfolioProject | null>(null)
   const trackRef = useRef<HTMLDivElement>(null)
   const total = projects.length
 
@@ -98,17 +101,54 @@ export function Projects() {
                     className="w-full relative overflow-hidden flex items-center justify-center"
                     style={{ aspectRatio: '16/9', background: 'var(--bg3)' }}
                   >
-                    <div
-                      className="flex flex-col items-center justify-center gap-2 w-full h-full"
-                      style={{
-                        background: 'repeating-linear-gradient(45deg,transparent,transparent 20px,rgba(255,255,255,0.015) 20px,rgba(255,255,255,0.015) 40px)',
-                      }}
-                    >
-                      {PLACEHOLDER_ICONS[i % PLACEHOLDER_ICONS.length]}
-                      <span className="font-mono text-[10px] tracking-[0.08em]" style={{ color: 'var(--text-dim)' }}>
-                        {slugify(proj.name)}.png
-                      </span>
-                    </div>
+                    {proj.coverImageUrl ? (
+                      <img
+                        src={proj.coverImageUrl}
+                        alt={`${t('Capa do projeto', 'Cover of')} ${proj.name}`}
+                        loading="lazy"
+                        width={1280}
+                        height={720}
+                        className="w-full h-full"
+                        style={{ objectFit: 'cover', display: 'block' }}
+                      />
+                    ) : (
+                      <div
+                        className="flex flex-col items-center justify-center gap-2 w-full h-full"
+                        style={{
+                          background: 'repeating-linear-gradient(45deg,transparent,transparent 20px,rgba(255,255,255,0.015) 20px,rgba(255,255,255,0.015) 40px)',
+                        }}
+                      >
+                        {PLACEHOLDER_ICONS[i % PLACEHOLDER_ICONS.length]}
+                        <span className="font-mono text-[10px] tracking-[0.08em]" style={{ color: 'var(--text-dim)' }}>
+                          {slugify(proj.name)}.png
+                        </span>
+                      </div>
+                    )}
+
+                    {proj.canPreview ? (
+                      <button
+                        type="button"
+                        onClick={() => setPreview(proj)}
+                        className="font-mono absolute transition-colors duration-200"
+                        style={{
+                          right: 12,
+                          bottom: 12,
+                          fontSize: 11,
+                          letterSpacing: '0.08em',
+                          textTransform: 'uppercase',
+                          color: 'var(--text)',
+                          background: 'rgba(0,0,0,0.62)',
+                          border: '1px solid var(--border-bright)',
+                          padding: '10px 14px',
+                          minHeight: 44,
+                          cursor: 'pointer',
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--green)'; e.currentTarget.style.color = 'var(--green)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-bright)'; e.currentTarget.style.color = 'var(--text)' }}
+                      >
+                        ▶ {t('Ver prévia', 'Preview')}
+                      </button>
+                    ) : null}
                   </div>
 
                   {/* Info */}
@@ -228,6 +268,8 @@ export function Projects() {
           </div>
         </div>
       </div>
+
+      {preview ? <ProjectPreviewModal project={preview} onClose={() => setPreview(null)} /> : null}
     </section>
   )
 }
