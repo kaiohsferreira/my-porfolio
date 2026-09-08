@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useLanguage } from '@/context/LanguageContext'
+import { buildPreviewUrl } from '@/lib/site-preview'
 import type { PortfolioProject } from '@/types'
 
 /**
@@ -231,7 +232,7 @@ export function ProjectPreviewModal({
           ) : null}
 
           <iframe
-            src={project.liveUrl}
+            src={buildPreviewUrl(project.liveUrl) ?? project.liveUrl}
             title={`${t('Prévia de', 'Preview of')} ${project.name}`}
             onLoad={() => setLoaded(true)}
             // Sem loading="lazy" de propósito. O modal é um overlay fixo criado por portal,

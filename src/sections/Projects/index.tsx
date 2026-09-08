@@ -3,6 +3,7 @@ import { useLanguage } from '@/context/LanguageContext'
 import { usePortfolioContent } from '@/context/PortfolioContentContext'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import { ProjectPreviewModal } from './ProjectPreviewModal'
+import { SiteCoverFrame } from './SiteCoverFrame'
 import type { PortfolioProject } from '@/types'
 
 const PLACEHOLDER_ICONS = [
@@ -111,6 +112,10 @@ export function Projects() {
                         className="w-full h-full"
                         style={{ objectFit: 'cover', display: 'block' }}
                       />
+                    ) : proj.liveUrl ? (
+                      /* Sem capa cadastrada: mostro a própria página inicial do projeto,
+                         em vez de deixar o card com o marcador vazio. */
+                      <SiteCoverFrame url={proj.liveUrl} name={proj.name} />
                     ) : (
                       <div
                         className="flex flex-col items-center justify-center gap-2 w-full h-full"
