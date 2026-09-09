@@ -7,7 +7,6 @@ import {
   createAdminProject,
   createAdminSkill,
   checkPortfolioSetupUrl,
-  DEFAULT_API_BASE_URL,
   clearAdminSession,
   deleteAdminExperience,
   deleteAdminMessage,
@@ -46,7 +45,6 @@ import {
   reorderAdminProfileStats,
   reorderAdminSocialLinks,
   resetAdminPassword,
-  saveAdminAccount,
   saveAdminPortfolioProfile,
   storeAdminSession,
   toggleAdminSocialLink,
@@ -133,15 +131,23 @@ interface StatItem {
   sortOrder: number
 }
 
+/**
+ * A tela de configuracoes so guarda a troca de senha.
+ *
+ * A URL da API e o token de sessao sairam daqui: um e configuracao de build, o outro e a
+ * credencial da propria sessao. Nenhum dos dois deveria trafegar entre backend e tela, e muito
+ * menos aparecer num campo. O email fica visivel, mas somente para leitura: nao existe endpoint
+ * que troque o email da conta (o UpdateUserLogIntoVO do backend nem carrega esse campo).
+ */
 interface SettingsState {
-  apiUrl: string
-  token: string
-  email: string
   currentPassword: string
   newPassword: string
-  notifyByEmail: boolean
-  weeklyVisitorsReport: boolean
+  confirmPassword: string
 }
+
+/** Mesmos limites do ResetPasswordSignInVO, para o erro aparecer antes da viagem ao servidor. */
+const PASSWORD_MIN_LENGTH = 6
+const PASSWORD_MAX_LENGTH = 50
 
 interface NavItem {
   id: AdminSection
@@ -202,13 +208,9 @@ const ABOUT_INITIAL_STATE: AboutState = {
 }
 
 const SETTINGS_INITIAL_STATE: SettingsState = {
-  apiUrl: DEFAULT_API_BASE_URL,
-  token: '',
-  email: '',
   currentPassword: '',
   newPassword: '',
-  notifyByEmail: true,
-  weeklyVisitorsReport: true,
+  confirmPassword: '',
 }
 
 const adminStyles = `
@@ -3804,25 +3806,52 @@ function LinksSection({
 function SettingsSection({
   settings,
   setSettings,
-  onSaveSettings,
+  accountEmail,
+  onChangePassword,
 }: {
   settings: SettingsState
   setSettings: React.Dispatch<React.SetStateAction<SettingsState>>
-  onSaveSettings: () => Promise<void>
+  accountEmail: string
+  onChangePassword: () => Promise<void>
 }) {
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  async function save() {
+  const current = settings.currentPassword
+  const next = settings.newPassword
+  const confirm = settings.confirmPassword
+
+  /** Valida com as mesmas regras do backend, para o erro chegar sem custar uma requisicao. */
+  function validate(): string {
+    if (!current || !next || !confirm) return 'Preencha a senha atual, a nova senha e a confirmacao.'
+    if (next.length < PASSWORD_MIN_LENGTH) return `A nova senha precisa de pelo menos ${PASSWORD_MIN_LENGTH} caracteres.`
+    if (next.length > PASSWORD_MAX_LENGTH) return `A nova senha pode ter no maximo ${PASSWORD_MAX_LENGTH} caracteres.`
+    if (next === current) return 'A nova senha precisa ser diferente da atual.'
+    if (next !== confirm) return 'A confirmacao nao confere com a nova senha.'
+    return ''
+  }
+
+  function update(field: keyof SettingsState, value: string) {
+    setSettings((state) => ({ ...state, [field]: value }))
+    if (error) setError('')
+  }
+
+  async function submit() {
+    const invalid = validate()
+    if (invalid) {
+      setError(invalid)
+      return
+    }
+
     try {
       setSaving(true)
       setError('')
-      await onSaveSettings()
+      await onChangePassword()
       setSaved(true)
-      setTimeout(() => setSaved(false), 1800)
+      setTimeout(() => setSaved(false), 2400)
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Nao foi possivel salvar as configuracoes.')
+      setError(saveError instanceof Error ? saveError.message : 'Nao foi possivel alterar a senha.')
     } finally {
       setSaving(false)
     }
@@ -3834,45 +3863,62 @@ function SettingsSection({
 
       <div className="admin-grid-2">
         <PanelCard accent="linear-gradient(to right, var(--green), var(--cyan))">
-          <div style={sectionEyebrowStyle}>Conexao e seguranca</div>
+          <div style={sectionEyebrowStyle}>Alterar senha</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 18 }}>
-            <TextField label="URL da API" value={settings.apiUrl} onChange={(value) => setSettings({ ...settings, apiUrl: value })} />
-            <TextField label="Token" value={settings.token} onChange={(value) => setSettings({ ...settings, token: value })} type="password" />
-            <TextField label="Email da conta" value={settings.email} onChange={(value) => setSettings({ ...settings, email: value })} type="email" />
-            <TextField label="Senha atual" value={settings.currentPassword} onChange={(value) => setSettings({ ...settings, currentPassword: value })} type="password" />
-            <TextField label="Nova senha" value={settings.newPassword} onChange={(value) => setSettings({ ...settings, newPassword: value })} type="password" />
-            {error ? <div style={{ color: 'oklch(65% 0.22 25)', fontSize: 13 }}>{error}</div> : null}
+            <TextField
+              label="Senha atual"
+              value={current}
+              onChange={(value) => update('currentPassword', value)}
+              type="password"
+            />
+            <TextField
+              label="Nova senha"
+              value={next}
+              onChange={(value) => update('newPassword', value)}
+              placeholder={`de ${PASSWORD_MIN_LENGTH} a ${PASSWORD_MAX_LENGTH} caracteres`}
+              type="password"
+            />
+            <TextField
+              label="Confirmar nova senha"
+              value={confirm}
+              onChange={(value) => update('confirmPassword', value)}
+              type="password"
+            />
+
+            {error ? (
+              <div role="alert" style={{ color: 'oklch(65% 0.22 25)', fontSize: 13, lineHeight: 1.6 }}>
+                {error}
+              </div>
+            ) : null}
+            {saved ? (
+              <div role="status" style={{ color: 'var(--green)', fontSize: 13, lineHeight: 1.6 }}>
+                Senha alterada. Use a nova senha no proximo login.
+              </div>
+            ) : null}
+
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <ButtonPrimary onClick={() => void save()}>{saving ? 'salvando...' : saved ? 'salvo' : 'salvar configuracoes'}</ButtonPrimary>
+              <ButtonPrimary onClick={() => void submit()}>
+                {saving ? 'alterando...' : 'alterar senha'}
+              </ButtonPrimary>
             </div>
           </div>
         </PanelCard>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           <PanelCard>
-            <div style={sectionEyebrowStyle}>Notificacoes</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 18 }}>
-              <ToggleField
-                label="Enviar email quando chegar nova mensagem"
-                checked={settings.notifyByEmail}
-                onChange={(notifyByEmail) => setSettings({ ...settings, notifyByEmail })}
-              />
-              <ToggleField
-                label="Gerar relatorio semanal de visitantes"
-                checked={settings.weeklyVisitorsReport}
-                onChange={(weeklyVisitorsReport) => setSettings({ ...settings, weeklyVisitorsReport })}
-              />
+            <div style={sectionEyebrowStyle}>Conta</div>
+            <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <span style={sectionEyebrowStyle}>Email</span>
+              <span style={{ fontSize: 15, color: 'var(--text)', wordBreak: 'break-all' }}>
+                {accountEmail || '—'}
+              </span>
+              <span style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.7, marginTop: 6 }}>
+                O email identifica a conta no login e nao pode ser trocado por aqui: a API nao
+                expoe endpoint para isso.
+              </span>
             </div>
           </PanelCard>
 
-          <PanelCard>
-            <div style={sectionEyebrowStyle}>Notas de deploy</div>
-            <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10, color: 'var(--text-muted)', lineHeight: 1.7 }}>
-              <span>Este painel foi preparado para rodar na raiz do subdominio de admin.</span>
-              <span>No dominio principal, a rota do admin nao fica aberta para acesso publico.</span>
-              <span>As configuracoes agora sincronizam email e troca de senha com o backend quando informado.</span>
-            </div>
-          </PanelCard>
         </div>
       </div>
     </div>
@@ -3899,11 +3945,7 @@ export function AdminPage() {
   const [about, setAbout] = useState<AboutState>(ABOUT_INITIAL_STATE)
   const [profileStats, setProfileStats] = useState<StatItem[]>([])
   const [links, setLinks] = useState<LinkItem[]>([])
-  const [settings, setSettings] = useState<SettingsState>(() => ({
-    ...SETTINGS_INITIAL_STATE,
-    token: getStoredAdminSession()?.token || '',
-    email: getStoredAdminSession()?.user?.email || '',
-  }))
+  const [settings, setSettings] = useState<SettingsState>(SETTINGS_INITIAL_STATE)
 
   const unreadMessages = messages.length
     ? messages.filter((message) => !message.read).length
@@ -3941,7 +3983,7 @@ export function AdminPage() {
     setProfileStats([])
     setLinks([])
     setLoadedAdminSections(getEmptyLoadedSections())
-    setSettings((current) => ({ ...current, token: '' }))
+    setSettings(SETTINGS_INITIAL_STATE)
     setAdminError('Sua sessao expirou. Entre novamente.')
   }
 
@@ -3949,11 +3991,6 @@ export function AdminPage() {
     storeAdminSession(session)
     setAuthSession(session)
     setCurrentUser(session.user || null)
-    setSettings((current) => ({
-      ...current,
-      token: session.token,
-      email: session.user?.email || current.email,
-    }))
   }
 
   async function bootstrapAdminSession(token: string) {
@@ -4442,38 +4479,18 @@ export function AdminPage() {
     })
   }
 
-  async function saveSettings() {
+  /**
+   * A senha vai sem trim: espaco na ponta faz parte da credencial, e recortar aqui criaria
+   * uma senha que o login depois nao aceita.
+   */
+  async function changePassword() {
     await runProtectedAction(async (token) => {
-      const trimmedEmail = settings.email.trim()
-      const currentEmail = currentUser?.email?.trim() || ''
+      await resetAdminPassword(token, {
+        oldPassword: settings.currentPassword,
+        newPassword: settings.newPassword,
+      })
 
-      if (trimmedEmail && trimmedEmail !== currentEmail) {
-        await saveAdminAccount(token, { email: trimmedEmail })
-        const nextUser = currentUser ? { ...currentUser, email: trimmedEmail } : null
-        setCurrentUser(nextUser)
-
-        if (authSession) {
-          const nextSession = { ...authSession, user: nextUser || authSession.user }
-          persistSession(nextSession)
-        }
-      }
-
-      if (settings.currentPassword.trim() || settings.newPassword.trim()) {
-        if (!settings.currentPassword.trim() || !settings.newPassword.trim()) {
-          throw new Error('Informe a senha atual e a nova senha para atualizar a credencial.')
-        }
-
-        await resetAdminPassword(token, {
-          oldPassword: settings.currentPassword.trim(),
-          newPassword: settings.newPassword.trim(),
-        })
-      }
-
-      setSettings((current) => ({
-        ...current,
-        currentPassword: '',
-        newPassword: '',
-      }))
+      setSettings(SETTINGS_INITIAL_STATE)
     })
   }
 
@@ -4681,7 +4698,14 @@ export function AdminPage() {
     }
 
     if (page === 'settings') {
-      return <SettingsSection settings={settings} setSettings={setSettings} onSaveSettings={saveSettings} />
+      return (
+        <SettingsSection
+          settings={settings}
+          setSettings={setSettings}
+          accountEmail={currentUser?.email || ''}
+          onChangePassword={changePassword}
+        />
+      )
     }
 
     return <Dashboard dashboard={dashboardData} visitorStats={visitorStats} onNav={navigate} />
@@ -4741,7 +4765,7 @@ export function AdminPage() {
             setProfileStats([])
             setLinks([])
             setLoadedAdminSections(getEmptyLoadedSections())
-            setSettings((current) => ({ ...current, token: '' }))
+            setSettings(SETTINGS_INITIAL_STATE)
           }}
         />
         <main className="admin-main">

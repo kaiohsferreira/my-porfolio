@@ -836,10 +836,3 @@ export async function resetAdminPassword(token: string, payload: ResetPasswordPa
   })
 }
 
-export async function saveAdminAccount(token: string, payload: Record<string, unknown>) {
-  return apiRequest<void>('/Account/Save', {
-    method: 'POST',
-    token,
-    body: payload,
-  })
-}
