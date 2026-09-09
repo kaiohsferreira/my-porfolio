@@ -49,27 +49,78 @@
   ::-webkit-scrollbar-thumb:hover { background: var(--green); }
 }
 
-/* ─── CUSTOM CURSOR ─── */
+/* ─── CUSTOM CURSOR ───
+   Mira técnica: uma cruz fina com vazio no centro, para o alvo do clique ficar visível.
+   Sobre link ou botão ela recolhe e dá lugar a um par de colchetes, o mesmo sinal que o
+   resto do site usa nos rótulos monoespaçados. */
 #cursor {
   position: fixed;
-  width: 10px; height: 10px;
-  background: var(--green);
-  border-radius: 50%;
+  top: 0; left: 0;
+  width: 0; height: 0;
   pointer-events: none;
   z-index: 9999;
-  transform: translate(-50%, -50%);
-  mix-blend-mode: screen;
-  transition: width 0.2s, height 0.2s, background 0.2s;
+  color: var(--green);
+  /* Contorno escuro para a mira não sumir sobre as capas claras dos projetos. */
+  filter: drop-shadow(0 0 1.5px rgba(0, 0, 0, 0.75));
+  transition: opacity 0.15s ease;
 }
-#cursor-ring {
-  position: fixed;
-  width: 36px; height: 36px;
-  border: 1px solid var(--green);
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 9998;
+#cursor[data-hidden='true'] { opacity: 0; }
+
+#cursor .cursor-line,
+#cursor .cursor-bracket {
+  position: absolute;
+  display: block;
   transform: translate(-50%, -50%);
-  opacity: 0.5;
+  transition: opacity 0.16s ease, transform 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Cada traço é um degrade com o miolo transparente: uma linha só, com o vazio no centro. */
+#cursor .cursor-line-h {
+  width: 22px; height: 1px;
+  background: linear-gradient(
+    to right,
+    currentColor 0 7px,
+    transparent 7px 15px,
+    currentColor 15px 22px
+  );
+}
+#cursor .cursor-line-v {
+  width: 1px; height: 22px;
+  background: linear-gradient(
+    to bottom,
+    currentColor 0 7px,
+    transparent 7px 15px,
+    currentColor 15px 22px
+  );
+}
+
+#cursor .cursor-bracket {
+  font-family: var(--font-mono);
+  font-size: 17px;
+  line-height: 1;
+  opacity: 0;
+}
+#cursor .cursor-bracket-l { transform: translate(-50%, -50%) translateX(-2px); }
+#cursor .cursor-bracket-r { transform: translate(-50%, -50%) translateX(2px); }
+
+/* Sobre algo clicável: a cruz sai, os colchetes entram e se afastam do centro. */
+#cursor[data-interactive='true'] .cursor-line {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.6);
+}
+#cursor[data-interactive='true'] .cursor-bracket { opacity: 1; }
+#cursor[data-interactive='true'] .cursor-bracket-l { transform: translate(-50%, -50%) translateX(-9px); }
+#cursor[data-interactive='true'] .cursor-bracket-r { transform: translate(-50%, -50%) translateX(9px); }
+
+/* Clique: tudo encolhe de leve na direção do centro. */
+#cursor[data-pressed='true'] .cursor-line { transform: translate(-50%, -50%) scale(0.8); }
+#cursor[data-pressed='true'] .cursor-bracket-l { transform: translate(-50%, -50%) translateX(-6px); }
+#cursor[data-pressed='true'] .cursor-bracket-r { transform: translate(-50%, -50%) translateX(6px); }
+
+/* Quem prefere menos movimento fica só com a troca de opacidade. */
+@media (prefers-reduced-motion: reduce) {
+  #cursor .cursor-line,
+  #cursor .cursor-bracket { transition: opacity 0.16s ease; }
 }
 
 /* ─── NAVBAR ─── */
