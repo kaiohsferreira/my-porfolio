@@ -491,3 +491,77 @@ nav.scrolled {
     display: none !important;
   }
 }
+
+/* ─── EMBLEMA DO TEMA ───
+   Marca animada ao lado do nome, uma por tema. Os desenhos são originais e abstratos:
+   traduzem o arquétipo (velocidade, sonar, maré, energia) em geometria, sem reproduzir
+   personagem nem emblema registrado de ninguém. As cores saem das variáveis do tema ativo,
+   então cada herói pinta o próprio símbolo. */
+.hero-emblem {
+  width: clamp(96px, 11vw, 168px);
+  height: clamp(96px, 11vw, 168px);
+  overflow: visible;
+  color: var(--green);
+  flex: 0 0 auto;
+}
+.hero-emblem .e-accent { color: var(--cyan); }
+
+.hero-emblem [class*='emb-'] {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes emb-spin { to { transform: rotate(360deg); } }
+@keyframes emb-spin-rev { to { transform: rotate(-360deg); } }
+@keyframes emb-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50%      { transform: scale(1.14); opacity: 0.45; }
+}
+@keyframes emb-shrink {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50%      { transform: scale(0.32); opacity: 0.35; }
+}
+@keyframes emb-echo {
+  0%   { transform: scale(0.25); opacity: 0; }
+  18%  { opacity: 0.95; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+@keyframes emb-dash { to { stroke-dashoffset: 0; } }
+@keyframes emb-travel { to { stroke-dashoffset: -240; } }
+@keyframes emb-drift {
+  0%   { transform: translateX(-26px); opacity: 0; }
+  20%  { opacity: 0.9; }
+  80%  { opacity: 0.9; }
+  100% { transform: translateX(26px); opacity: 0; }
+}
+@keyframes emb-rise {
+  0%   { transform: translateY(14px); opacity: 0; }
+  30%  { opacity: 1; }
+  100% { transform: translateY(-16px); opacity: 0; }
+}
+@keyframes emb-blink {
+  0%, 42%, 46%, 100% { opacity: 0.2; }
+  44%, 62%           { opacity: 1; }
+}
+@keyframes emb-sweep {
+  0%   { stroke-dashoffset: 300; }
+  55%  { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -300; }
+}
+
+.hero-emblem .emb-spin     { animation: emb-spin 14s linear infinite; }
+.hero-emblem .emb-spin-rev { animation: emb-spin-rev 9s linear infinite; }
+.hero-emblem .emb-pulse    { animation: emb-pulse 2.6s ease-in-out infinite; }
+.hero-emblem .emb-shrink   { animation: emb-shrink 3.4s ease-in-out infinite; }
+.hero-emblem .emb-echo     { animation: emb-echo 2.4s ease-out infinite; }
+.hero-emblem .emb-dash     { stroke-dasharray: 300; stroke-dashoffset: 300; animation: emb-dash 3s ease-in-out infinite alternate; }
+.hero-emblem .emb-travel   { stroke-dasharray: 14 226; animation: emb-travel 3.2s linear infinite; }
+.hero-emblem .emb-drift    { animation: emb-drift 3.6s ease-in-out infinite; }
+.hero-emblem .emb-rise     { animation: emb-rise 2.4s ease-out infinite; }
+.hero-emblem .emb-blink    { animation: emb-blink 3.2s steps(1, end) infinite; }
+.hero-emblem .emb-sweep    { stroke-dasharray: 300; animation: emb-sweep 4s ease-in-out infinite; }
+
+/* Movimento constante ao lado do nome cansa quem pediu menos animação: fica só o desenho. */
+@media (prefers-reduced-motion: reduce) {
+  .hero-emblem [class*='emb-'] { animation: none !important; opacity: 0.85; }
+}

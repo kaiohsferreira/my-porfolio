@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavScroll } from '@/hooks/useNavScroll'
 import { useLanguage } from '@/context/LanguageContext'
 import { usePortfolioContent } from '@/context/PortfolioContentContext'
+import { useTheme } from '@/context/ThemeContext'
 import { THEMES, type ThemeConfig } from '@/data/portfolio'
 
 /* Dropdown shows: Padrão (green) + all 22 heroes */
@@ -10,36 +11,16 @@ const DROPDOWN_THEMES: ThemeConfig[] = [
   ...THEMES.filter((t) => t.group === 'hero'),
 ]
 
-function applyTheme(theme: ThemeConfig) {
-  const r = document.documentElement
-  r.style.setProperty('--bg',           theme.bg)
-  r.style.setProperty('--bg2',          theme.bg2)
-  r.style.setProperty('--bg3',          theme.bg3)
-  r.style.setProperty('--surface',      theme.surface)
-  r.style.setProperty('--border',       theme.border)
-  r.style.setProperty('--border-bright',theme.borderBright)
-  r.style.setProperty('--text',         theme.text)
-  r.style.setProperty('--text-muted',   theme.textMuted)
-  r.style.setProperty('--text-dim',     theme.textDim)
-  r.style.setProperty('--green',        theme.green)
-  r.style.setProperty('--cyan',         theme.cyan)
-  r.style.setProperty('--green-glow',   theme.greenGlow)
-  r.style.setProperty('--cyan-glow',    theme.cyanGlow)
-}
-
 export function Navbar() {
   const scrolled = useNavScroll()
   const { lang, setLang, t } = useLanguage()
   const { profile } = usePortfolioContent()
   const [themeOpen, setThemeOpen]       = useState(false)
-  const [activeThemeId, setActiveThemeId] = useState('green')
+  const { theme: activeTheme, setThemeId } = useTheme()
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  const activeTheme = THEMES.find((th) => th.id === activeThemeId) ?? THEMES[0]
-
   function selectTheme(theme: ThemeConfig) {
-    applyTheme(theme)
-    setActiveThemeId(theme.id)
+    setThemeId(theme.id)
     setThemeOpen(false)
   }
 
@@ -144,7 +125,7 @@ export function Navbar() {
                     <ThemeButton
                       key={th.id}
                       theme={th}
-                      active={activeThemeId === th.id}
+                      active={activeTheme.id === th.id}
                       onSelect={selectTheme}
                     />
                   ))}

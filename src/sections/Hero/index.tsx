@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useLanguage } from '@/context/LanguageContext'
 import { usePortfolioContent } from '@/context/PortfolioContentContext'
 import { useTyped } from '@/hooks/useTyped'
+import { HeroEmblem } from './HeroEmblem'
 
 const SNIPPETS = ['const','let','var','=>','for','if()','async','await','<div>','</div>','class','null','true','{}','[]','import','return','===','&&','||','...']
 const LINE_NUMS = ['01','02','03','04','05','06','07','08','09','10']
@@ -69,13 +70,16 @@ export function Hero() {
         </div>
 
         {/* Name */}
-        <h1
-          className="hero-anim-2 font-bold leading-[0.92] tracking-[-0.03em] mb-2"
-          style={{ fontSize: 'clamp(56px,8vw,120px)', color: 'var(--text)' }}
-        >
-          <span className="glitch" data-text={firstName}>{firstName}</span>
-          <span className="block" style={{ color: 'var(--green)' }}>{remainingName}</span>
-        </h1>
+        <div className="hero-anim-2 flex items-center gap-6 mb-2 flex-wrap">
+          <h1
+            className="font-bold leading-[0.92] tracking-[-0.03em]"
+            style={{ fontSize: 'clamp(56px,8vw,120px)', color: 'var(--text)' }}
+          >
+            <span className="glitch" data-text={firstName}>{firstName}</span>
+            <span className="block" style={{ color: 'var(--green)' }}>{remainingName}</span>
+          </h1>
+          <HeroEmblem />
+        </div>
 
         {/* Role typed */}
         <div
