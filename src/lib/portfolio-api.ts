@@ -508,6 +508,11 @@ export async function getPublicSkills(portfolioUrl = getPortfolioUrl()) {
   return apiRequest<AdminSkill[]>(`/PublicSkill/GetAll?url=${encodedUrl}`)
 }
 
+export async function getPublicExperiences(portfolioUrl = getPortfolioUrl()) {
+  const encodedUrl = encodeURIComponent(portfolioUrl)
+  return apiRequest<AdminExperience[]>(`/PublicExperience/GetAll?url=${encodedUrl}`)
+}
+
 /** Somente os projetos com status PUBLICADO. O backend filtra; rascunhos nunca saem daqui. */
 export async function getPublicProjects(portfolioUrl = getPortfolioUrl()) {
   const encodedUrl = encodeURIComponent(portfolioUrl)

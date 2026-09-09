@@ -3,10 +3,12 @@ import {
   getPortfolioUrl,
   getPortfolioUrlCandidates,
   getPublicPortfolioProfile,
+  getPublicExperiences,
   getPublicProjects,
   getPublicSkills,
   getPublicSocialLinks,
   isApiError,
+  type AdminExperience,
   type AdminProject,
   type AdminSkill,
   type PortfolioProfilePublic,
@@ -18,6 +20,7 @@ interface PortfolioContentContextValue {
   profile: PortfolioProfilePublic
   skills: Skill[]
   projects: PortfolioProject[]
+  experiences: AdminExperience[]
   loading: boolean
   error: string | null
   portfolioUrl: string
@@ -113,14 +116,15 @@ async function loadFromFirstResolvableUrl() {
 
   for (const url of candidates) {
     try {
-      const [nextProfile, socialLinks, publicSkillsResult, publicProjectsResult] = await Promise.all([
+      const [nextProfile, socialLinks, publicSkillsResult, publicProjectsResult, publicExperiencesResult] = await Promise.all([
         getPublicPortfolioProfile(url),
         getPublicSocialLinks(url).catch(() => null),
         getPublicSkills(url).catch(() => null),
         getPublicProjects(url).catch(() => null),
+        getPublicExperiences(url).catch(() => null),
       ])
 
-      return { url, nextProfile, socialLinks, publicSkillsResult, publicProjectsResult }
+      return { url, nextProfile, socialLinks, publicSkillsResult, publicProjectsResult, publicExperiencesResult }
     } catch (error) {
       if (isApiError(error) && error.status === 404) {
         lastNotFound = error
@@ -156,6 +160,7 @@ export function PortfolioContentProvider({ children }: { children: ReactNode }) 
   const [profile, setProfile] = useState(DEFAULT_PROFILE)
   const [skills, setSkills] = useState<Skill[]>(DEFAULT_SKILLS)
   const [projects, setProjects] = useState<PortfolioProject[]>(DEFAULT_PROJECTS)
+  const [experiences, setExperiences] = useState<AdminExperience[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [portfolioUrl, setPortfolioUrl] = useState(() => getPortfolioUrl())
@@ -165,7 +170,7 @@ export function PortfolioContentProvider({ children }: { children: ReactNode }) 
       setLoading(true)
       setError(null)
 
-      const { url, nextProfile, socialLinks, publicSkillsResult, publicProjectsResult } = await loadFromFirstResolvableUrl()
+      const { url, nextProfile, socialLinks, publicSkillsResult, publicProjectsResult, publicExperiencesResult } = await loadFromFirstResolvableUrl()
       setPortfolioUrl(url)
 
       setProfile({
@@ -185,6 +190,12 @@ export function PortfolioContentProvider({ children }: { children: ReactNode }) 
         .filter((project) => !isSameSite(project.liveUrl, url))
 
       setProjects(visibleProjects.length ? visibleProjects : DEFAULT_PROJECTS)
+
+      // Sem catálogo estático de reserva: experiência é dado biográfico, e inventar uma
+      // seria pior do que não mostrar a seção.
+      setExperiences(
+        (publicExperiencesResult ?? []).slice().sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
+      )
     } catch (loadError) {
       const message =
         isApiError(loadError) ? loadError.message : 'Nao foi possivel carregar os dados publicos do portfolio.'
@@ -193,6 +204,7 @@ export function PortfolioContentProvider({ children }: { children: ReactNode }) 
       setProfile(DEFAULT_PROFILE)
       setSkills(DEFAULT_SKILLS)
       setProjects(DEFAULT_PROJECTS)
+      setExperiences([])
     } finally {
       setLoading(false)
     }
@@ -210,6 +222,7 @@ export function PortfolioContentProvider({ children }: { children: ReactNode }) 
         profile,
         skills,
         projects,
+        experiences,
         loading,
         error,
         portfolioUrl,

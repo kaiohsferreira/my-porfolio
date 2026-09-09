@@ -70,7 +70,7 @@ export function Projects() {
       className="border-t"
       style={{ padding: '140px 48px', background: 'var(--bg2)', borderColor: 'var(--border)' }}
     >
-      <SectionHeader num="03" title={t('Projetos', 'Projects')} />
+      <SectionHeader num="04" title={t('Projetos', 'Projects')} />
 
       <div className="reveal">
         {/* Carousel */}

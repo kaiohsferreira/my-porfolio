@@ -96,7 +96,7 @@ export function Contact() {
         aria-hidden="true"
       />
 
-      <SectionHeader num="04" title={t('Contato', 'Contact')} />
+      <SectionHeader num="05" title={t('Contato', 'Contact')} />
 
       <div
         className="contact-grid-cols relative z-10 grid gap-20"

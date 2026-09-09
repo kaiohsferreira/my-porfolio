@@ -37,6 +37,7 @@ export function Navbar() {
   const navLinks = [
     { href: '#about',    label: t('Sobre',    'About')    },
     { href: '#skills',   label: t('Skills',   'Skills')   },
+    { href: '#experience', label: t('Experiencia', 'Experience') },
     { href: '#projects', label: t('Projetos', 'Projects') },
     { href: '#contact',  label: t('Contato',  'Contact')  },
   ]
