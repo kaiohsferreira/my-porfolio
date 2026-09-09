@@ -3,10 +3,17 @@ import { usePortfolioContent } from '@/context/PortfolioContentContext'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 
 /**
+ * O período chega como texto livre do painel ("2025 - Atual", "2023 - 2025"), então a única
+ * forma de saber qual cargo está em curso é procurar a palavra. Não achar não quebra nada: o
+ * item apenas não recebe o destaque.
+ */
+const CURRENT_PERIOD = /\b(atual|atualmente|presente|present|current|hoje|now)\b/i
+
+/**
  * Linha do tempo profissional, alimentada pelo que está cadastrado no painel.
  *
  * A ordem é a do campo sortOrder, ou seja, a curadoria feita no admin — não a data, que chega
- * como texto livre ("2023 - 2025", "2025 - Atual") e não dá para ordenar com segurança.
+ * como texto livre e não dá para ordenar com segurança.
  *
  * Sem cadastro, a seção inteira desaparece: não existe lista estática de reserva aqui, porque
  * experiência é dado biográfico e inventar uma seria pior do que não mostrar nada.
@@ -25,102 +32,46 @@ export function Experience() {
     >
       <SectionHeader num="03" title={t('Experiência', 'Experience')} />
 
-      <div className="reveal" style={{ maxWidth: 900 }}>
-        <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-          {experiences.map((experience, index) => {
-            const last = index === experiences.length - 1
+      <ol className="exp-list">
+        {experiences.map((experience, index) => {
+          const isCurrent = Boolean(experience.period && CURRENT_PERIOD.test(experience.period))
 
-            return (
-              <li
-                key={experience.id}
-                style={{
-                  position: 'relative',
-                  paddingLeft: 34,
-                  paddingBottom: last ? 0 : 44,
-                }}
-              >
-                {/* Traço vertical ligando os cargos. O último não continua para lugar nenhum. */}
-                {last ? null : (
-                  <span
-                    aria-hidden="true"
-                    style={{
-                      position: 'absolute',
-                      left: 5,
-                      top: 18,
-                      bottom: 0,
-                      width: 1,
-                      background: 'var(--border-bright)',
-                    }}
-                  />
-                )}
+          return (
+            <li
+              key={experience.id}
+              className="exp-item reveal"
+              // Escalonamento curto: quando dois cargos entram na tela juntos eles aparecem em
+              // sequência; quando entram separados, o atraso é imperceptível.
+              style={{ transitionDelay: `${Math.min(index, 4) * 0.08}s` }}
+            >
+              <div className="exp-period">{experience.period || '—'}</div>
 
-                <span
-                  aria-hidden="true"
-                  style={{
-                    position: 'absolute',
-                    left: 0,
-                    top: 7,
-                    width: 11,
-                    height: 11,
-                    borderRadius: '50%',
-                    border: '1px solid var(--green)',
-                    background: 'var(--bg)',
-                  }}
-                />
+              <div className="exp-rail" aria-hidden="true">
+                <span className="exp-rail-line" />
+                <span className={isCurrent ? 'exp-marker exp-marker-current' : 'exp-marker'} />
+              </div>
 
-                {experience.period ? (
-                  <span
-                    className="font-mono"
-                    style={{
-                      display: 'block',
-                      fontSize: 11,
-                      letterSpacing: '0.14em',
-                      textTransform: 'uppercase',
-                      color: 'var(--green)',
-                      marginBottom: 8,
-                    }}
-                  >
-                    {experience.period}
-                  </span>
-                ) : null}
-
-                <h3
-                  style={{
-                    fontSize: 'clamp(17px,2vw,21px)',
-                    fontWeight: 600,
-                    letterSpacing: '-0.01em',
-                    color: 'var(--text)',
-                    margin: 0,
-                  }}
-                >
-                  {experience.role}
-                </h3>
-
-                <span
-                  className="font-mono"
-                  style={{ display: 'block', fontSize: 13, color: 'var(--cyan)', marginTop: 4 }}
-                >
-                  {experience.company}
+              <div className="exp-card">
+                <span className="exp-index" aria-hidden="true">
+                  {String(index + 1).padStart(2, '0')}
                 </span>
 
-                {experience.description ? (
-                  <p
-                    style={{
-                      fontSize: 14,
-                      lineHeight: 1.75,
-                      color: 'var(--text-muted)',
-                      marginTop: 12,
-                      maxWidth: '68ch',
-                    }}
-                  >
-                    {experience.description}
-                  </p>
+                {isCurrent ? (
+                  <div className="exp-badge">
+                    <span aria-hidden="true" />
+                    {t('Cargo atual', 'Current role')}
+                  </div>
                 ) : null}
-              </li>
-            )
-          })}
-        </ol>
-      </div>
+
+                <h3 className="exp-role">{experience.role}</h3>
+                <span className="exp-company">{experience.company}</span>
+
+                {experience.description ? <p className="exp-desc">{experience.description}</p> : null}
+              </div>
+            </li>
+          )
+        })}
+      </ol>
     </section>
   )
 }

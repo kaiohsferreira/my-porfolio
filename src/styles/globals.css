@@ -492,6 +492,193 @@ nav.scrolled {
   }
 }
 
+/* ─── EXPERIENCIA ─── */
+.exp-list { list-style: none; margin: 0; padding: 0; }
+
+/* Periodo | trilho | cartao. A coluna do periodo dá ancoragem cronologica e faz o bloco
+   ocupar a largura da secao, em vez de deixar metade da tela vazia. */
+.exp-item {
+  display: grid;
+  grid-template-columns: 170px 28px minmax(0, 1fr);
+  column-gap: 8px;
+  padding-bottom: 28px;
+}
+.exp-item:last-child { padding-bottom: 0; }
+
+.exp-period {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: right;
+  padding-top: 26px;
+  transition: color 0.25s;
+  white-space: nowrap;
+}
+.exp-item:hover .exp-period { color: var(--green); }
+
+/* Trilho */
+.exp-rail { position: relative; }
+.exp-rail-line {
+  position: absolute;
+  left: 50%;
+  top: 34px;
+  bottom: -28px;
+  width: 1px;
+  transform: translateX(-50%);
+  background: linear-gradient(to bottom, var(--border-bright), transparent);
+}
+.exp-item:last-child .exp-rail-line { display: none; }
+
+.exp-marker {
+  position: absolute;
+  left: 50%;
+  top: 24px;
+  width: 11px;
+  height: 11px;
+  transform: translateX(-50%);
+  border: 1px solid var(--green);
+  border-radius: 50%;
+  background: var(--bg);
+  transition: box-shadow 0.25s, background 0.25s;
+}
+.exp-item:hover .exp-marker { background: var(--green); }
+
+/* O cargo atual ganha um halo pulsante: e a unica informacao da secao que muda com o tempo. */
+.exp-marker-current { background: var(--green); }
+.exp-marker-current::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border: 1px solid var(--green);
+  border-radius: 50%;
+  animation: exp-halo 2.4s ease-out infinite;
+}
+@keyframes exp-halo {
+  0%   { transform: scale(0.7); opacity: 0.9; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+
+/* Cartao */
+.exp-card {
+  position: relative;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 22px 26px 24px;
+  overflow: hidden;
+  transition: border-color 0.25s, transform 0.25s, background 0.25s;
+}
+.exp-card::before {
+  /* Fio de luz que corre na borda esquerda ao passar o mouse. */
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--green), var(--cyan));
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.exp-item:hover .exp-card {
+  border-color: var(--border-bright);
+  background: var(--bg3);
+  transform: translateX(3px);
+}
+.exp-item:hover .exp-card::before { transform: scaleY(1); }
+
+.exp-index {
+  position: absolute;
+  right: 18px;
+  top: 16px;
+  font-family: var(--font-mono);
+  font-size: 30px;
+  line-height: 1;
+  color: var(--text);
+  opacity: 0.05;
+  transition: opacity 0.25s, color 0.25s;
+  user-select: none;
+}
+.exp-item:hover .exp-index { opacity: 0.16; color: var(--green); }
+
+.exp-role {
+  font-size: clamp(17px, 2vw, 21px);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  margin: 0;
+  padding-right: 44px;
+}
+.exp-company {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  letter-spacing: 0.06em;
+  color: var(--cyan);
+  margin-top: 6px;
+}
+.exp-desc {
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--text-muted);
+  margin: 14px 0 0;
+  max-width: 70ch;
+}
+
+.exp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--green);
+  border: 1px solid oklch(72% 0.25 160 / 0.35);
+  background: var(--green-glow);
+  padding: 4px 9px;
+  margin-bottom: 12px;
+}
+.exp-badge span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: exp-blink 1.8s ease-in-out infinite;
+}
+@keyframes exp-blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.25; }
+}
+
+@media (max-width: 900px) {
+  .exp-item {
+    grid-template-columns: 24px minmax(0, 1fr);
+    column-gap: 12px;
+  }
+  /* Em tela estreita o periodo desce para dentro do cartao e o trilho vai para a esquerda. */
+  .exp-period {
+    grid-column: 2;
+    grid-row: 1;
+    text-align: left;
+    padding-top: 0;
+    padding-bottom: 8px;
+  }
+  .exp-rail { grid-column: 1; grid-row: 1 / span 2; }
+  .exp-rail-line { top: 14px; }
+  .exp-marker { top: 4px; }
+  .exp-card { grid-column: 2; grid-row: 2; padding: 18px 20px 20px; }
+  .exp-item:hover .exp-card { transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .exp-marker-current::after,
+  .exp-badge span { animation: none; }
+  .exp-marker-current::after { opacity: 0.35; transform: scale(1.3); }
+}
+
 /* ─── EMBLEMA DO TEMA ───
    Marca animada ao lado do nome, uma por tema. Os desenhos são originais e abstratos:
    traduzem o arquétipo (velocidade, sonar, maré, energia) em geometria, sem reproduzir
