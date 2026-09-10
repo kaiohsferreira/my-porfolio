@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEven
 import { useLanguage } from '@/context/LanguageContext'
 import { readFileAsDataUrl } from '@/lib/file-utils'
 import { getSkillIconUrls, normalizeSkillIconName, searchSkillIcons, type SkillIconSearchResult } from '@/lib/skill-icons'
+import { SkillMonogram } from '@/components/ui/SkillMonogram'
 import {
   createAdminExperience,
   createAdminProject,
@@ -986,34 +987,26 @@ function TextAreaField({
 function IconAsset({
   iconName,
   size = 28,
+  /** Nome da habilidade, usado para as iniciais quando não há ícone. */
+  fallbackName,
 }: {
   iconName: string
   size?: number
+  fallbackName?: string
 }) {
   const urls = getSkillIconUrls(iconName, size)
   const [index, setIndex] = useState(0)
+  const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     setIndex(0)
+    setFailed(false)
   }, [iconName])
 
-  if (!iconName.trim() || !urls.length) {
-    return (
-      <div
-        style={{
-          width: size,
-          height: size,
-          display: 'grid',
-          placeItems: 'center',
-          border: '1px solid var(--border)',
-          color: 'var(--text-dim)',
-          fontFamily: 'var(--font-mono)',
-          fontSize: 10,
-        }}
-      >
-        ?
-      </div>
-    )
+  // O mesmo monograma que o carrossel usa, para o painel mostrar exatamente o que o visitante
+  // vai ver quando a habilidade não tiver ícone.
+  if (!iconName.trim() || !urls.length || failed) {
+    return <SkillMonogram name={fallbackName || iconName} size={size} />
   }
 
   return (
@@ -1025,6 +1018,7 @@ function IconAsset({
       loading="lazy"
       onError={() => {
         if (index < urls.length - 1) setIndex((current) => current + 1)
+        else setFailed(true)
       }}
     />
   )
@@ -2750,7 +2744,7 @@ function SkillsList({
                 <div key={skill.id} style={{ border: '1px solid var(--border)', padding: 14 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-                      <IconAsset iconName={skill.iconName} size={22} />
+                      <IconAsset iconName={skill.iconName} size={22} fallbackName={skill.name} />
                       <strong>{skill.name}</strong>
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
@@ -2884,7 +2878,7 @@ function SkillForm({
                     background: 'rgba(255,255,255,0.02)',
                   }}
                 >
-                  <IconAsset iconName={form.iconName} size={30} />
+                  <IconAsset iconName={form.iconName} size={30} fallbackName={form.name} />
                 </div>
                 <div style={{ fontSize: 24, fontWeight: 700 }}>{form.name || 'Skill sem nome'}</div>
               </div>

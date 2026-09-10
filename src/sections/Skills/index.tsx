@@ -4,6 +4,7 @@ import { usePortfolioContent } from '@/context/PortfolioContentContext'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import { SKILLS_DATA } from '@/data/portfolio'
 import { getSkillIconUrls } from '@/lib/skill-icons'
+import { SkillMonogram } from '@/components/ui/SkillMonogram'
 
 /** Tempo que o carrossel leva para percorrer um grupo inteiro, em milissegundos. */
 const LOOP_DURATION = 28000
@@ -11,21 +12,16 @@ const LOOP_DURATION = 28000
 function SkillIcon({ iconName, alt }: { iconName: string; alt: string }) {
   const urls = getSkillIconUrls(iconName, 64)
   const [index, setIndex] = useState(0)
+  const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     setIndex(0)
+    setFailed(false)
   }, [iconName])
 
-  if (!urls.length) {
-    return (
-      <div
-        className="w-16 h-16 flex items-center justify-center"
-        style={{ border: '1px solid var(--border)', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', fontSize: 11 }}
-      >
-        N/A
-      </div>
-    )
-  }
+  // Sem ícone cadastrado, ou com todas as fontes recusadas, entra o monograma. Antes o último
+  // erro não era tratado e sobrava a imagem quebrada no cartão.
+  if (!urls.length || failed) return <SkillMonogram name={alt} size={64} />
 
   return (
     <img
@@ -36,6 +32,7 @@ function SkillIcon({ iconName, alt }: { iconName: string; alt: string }) {
       draggable={false}
       onError={() => {
         if (index < urls.length - 1) setIndex((current) => current + 1)
+        else setFailed(true)
       }}
     />
   )

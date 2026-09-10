@@ -306,6 +306,19 @@ nav.scrolled {
   box-shadow: 0 16px 40px oklch(72% 0.25 160 / 0.15);
 }
 
+/* Marca de reserva para habilidade sem icone. */
+.skill-monogram {
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--green);
+  border: 1px solid var(--border-bright);
+  background: linear-gradient(150deg, var(--green-glow), transparent 70%);
+  user-select: none;
+}
+
 /* Nivel de dominio: o card enche de baixo para cima ate a altura da porcentagem cadastrada no
    painel, e o numero aparece grande no meio da area cheia. O icone e o nome recuam para o
    fundo enquanto isso, senao disputariam a leitura com o numero. */
