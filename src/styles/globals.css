@@ -403,6 +403,7 @@ nav.scrolled {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.4; }
 }
+
 @keyframes marqueeScroll {
   0%   { transform: translateX(0); }
   100% { transform: translateX(calc(-1 * var(--skills-loop-shift, 0px))); }
@@ -518,18 +519,44 @@ nav.scrolled {
 }
 .exp-item:hover .exp-period { color: var(--green); }
 
-/* Trilho */
+/* Trilho
+   Os segmentos precisam se encostar para a linha ler como uma so, do primeiro emprego ao
+   atual. Cada item cobre a propria altura e mais o vao ate o proximo (o padding-bottom fica
+   fora da celula do grid, por isso o -28px). O primeiro nasce no seu marcador e o ultimo morre
+   no dele, senao a linha comecaria e terminaria no vazio. */
 .exp-rail { position: relative; }
 .exp-rail-line {
   position: absolute;
   left: 50%;
-  top: 34px;
+  top: 0;
   bottom: -28px;
   width: 1px;
-  transform: translateX(-50%);
-  background: linear-gradient(to bottom, var(--border-bright), transparent);
+  background: var(--border-bright);
+  transform: translateX(-50%) scaleY(0);
+  transform-origin: top;
+  transition: transform 0.85s cubic-bezier(0.16, 1, 0.3, 1) 0.1s;
 }
-.exp-item:last-child .exp-rail-line { display: none; }
+.exp-item.visible .exp-rail-line { transform: translateX(-50%) scaleY(1); }
+.exp-item:first-child .exp-rail-line { top: 29px; }
+.exp-item:last-child .exp-rail-line { bottom: auto; height: 29px; }
+/* Uma experiencia sozinha nao tem o que ligar. */
+.exp-item:only-child .exp-rail-line { display: none; }
+
+/* Braco curto do marcador ate o cartao: e o que faz o cartao pertencer ao trilho em vez de
+   flutuar ao lado dele. */
+.exp-rail::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 29px;
+  height: 1px;
+  width: calc(50% + 8px);
+  background: linear-gradient(to right, var(--green), transparent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.5s ease 0.35s;
+}
+.exp-item.visible .exp-rail::after { transform: scaleX(1); }
 
 .exp-marker {
   position: absolute;
@@ -667,7 +694,11 @@ nav.scrolled {
     padding-bottom: 8px;
   }
   .exp-rail { grid-column: 1; grid-row: 1 / span 2; }
-  .exp-rail-line { top: 14px; }
+  .exp-rail-line { top: 0; }
+  .exp-item:first-child .exp-rail-line { top: 9px; }
+  .exp-item:last-child .exp-rail-line { height: 9px; }
+  /* Aqui o cartao fica abaixo, nao ao lado: o braco apontaria para o periodo. */
+  .exp-rail::after { display: none; }
   .exp-marker { top: 4px; }
   .exp-card { grid-column: 2; grid-row: 2; padding: 18px 20px 20px; }
   .exp-item:hover .exp-card { transform: none; }
@@ -677,6 +708,9 @@ nav.scrolled {
   .exp-marker-current::after,
   .exp-badge span { animation: none; }
   .exp-marker-current::after { opacity: 0.35; transform: scale(1.3); }
+  /* O trilho continua inteiro: quem pediu menos movimento nao pode perder a ligacao. */
+  .exp-rail-line { transform: translateX(-50%) scaleY(1); transition: none; }
+  .exp-rail::after { transform: scaleX(1); transition: none; }
 }
 
 /* ─── EMBLEMA DO TEMA ───
