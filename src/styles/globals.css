@@ -299,16 +299,67 @@ nav.scrolled {
   filter: grayscale(0%) drop-shadow(0 0 8px var(--green)) !important;
   transform: scale(1.1);
 }
-.skill-card-hover:hover span { color: var(--green) !important; }
+.skill-card-hover:hover .skill-name { color: var(--green) !important; }
 .skill-card-hover:hover {
   border-color: var(--green) !important;
   transform: translateY(-6px);
   box-shadow: 0 16px 40px oklch(72% 0.25 160 / 0.15);
 }
 
-/* Nivel de dominio: numero no alto e barra na base, ambos entrando no hover. A barra cresce
-   da esquerda para a direita ate a porcentagem cadastrada no painel. */
-.skill-level-value {
+/* Nivel de dominio: o card enche de baixo para cima ate a altura da porcentagem cadastrada no
+   painel, e o numero aparece grande no meio da area cheia. O icone e o nome recuam para o
+   fundo enquanto isso, senao disputariam a leitura com o numero. */
+.skill-level-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--level, 0%);
+  z-index: 2;
+  background:
+    radial-gradient(60% 60% at 50% 50%, oklch(92% 0.08 200 / 0.42), transparent 72%),
+    linear-gradient(to top, var(--cyan), var(--green));
+  opacity: 0.92;
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.skill-card-hover:hover .skill-level-fill { transform: scaleY(1); }
+
+/* Fica fora do preenchimento para o scaleY nao achatar o texto. Meio da area cheia = metade
+   da altura dela. */
+.skill-level-big {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--level, 0%) / 2);
+  z-index: 3;
+  text-align: center;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #fff;
+  text-shadow: 0 0 14px oklch(98% 0.02 200 / 0.55);
+  opacity: 0;
+  transform: translateY(calc(50% + 8px));
+  transition: opacity 0.3s ease 0.12s, transform 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.12s;
+}
+.skill-card-hover:hover .skill-level-big {
+  opacity: 1;
+  transform: translateY(50%);
+}
+
+/* Recuo do conteudo original enquanto o nivel esta em cena. */
+.skill-card-hover .skill-icon-wrap,
+.skill-card-hover .skill-name {
+  transition: opacity 0.3s ease;
+}
+.skill-card-hover:hover .skill-icon-wrap,
+.skill-card-hover:hover .skill-name { opacity: 0.12; }
+
+/* Sem hover (toque) o preenchimento nao entra: sessenta e dois cartoes cheios de cor
+   esconderiam todos os icones. Ali o nivel aparece discreto, no canto. */
+.skill-level-corner {
   position: absolute;
   top: 9px;
   right: 11px;
@@ -316,44 +367,19 @@ nav.scrolled {
   font-size: 10px;
   letter-spacing: 0.06em;
   color: var(--green);
-  opacity: 0;
-  transform: translateY(-4px);
-  transition: opacity 0.22s ease, transform 0.22s ease;
+  display: none;
 }
-.skill-card-hover:hover .skill-level-value { opacity: 1; transform: none; }
-
-.skill-level-bar {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 3px;
-  z-index: 3;
-  background: var(--border-bright);
-  opacity: 0;
-  transition: opacity 0.22s ease;
-}
-.skill-card-hover:hover .skill-level-bar { opacity: 1; }
-
-.skill-level-fill {
-  display: block;
-  height: 100%;
-  background: linear-gradient(to right, var(--green), var(--cyan));
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.05s;
-}
-.skill-card-hover:hover .skill-level-fill { transform: scaleX(1); }
-
-/* Sem hover (toque), o nivel fica sempre visivel: ali nao existe o gesto que o revelaria. */
 @media (hover: none), (pointer: coarse) {
-  .skill-level-value { opacity: 1; transform: none; }
-  .skill-level-bar { opacity: 1; }
-  .skill-level-fill { transform: scaleX(1); }
+  .skill-level-corner { display: block; }
+  .skill-level-fill,
+  .skill-level-big { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .skill-level-fill { transition: none; }
+  .skill-level-fill,
+  .skill-level-big { transition: opacity 0.2s ease; }
+  .skill-card-hover:hover .skill-level-fill { transform: scaleY(1); }
+  .skill-card-hover:hover .skill-level-big { transform: translateY(50%); }
 }
 
 /* ─── PROJECTS ─── */

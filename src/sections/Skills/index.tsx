@@ -262,33 +262,37 @@ export function Skills() {
                     <div
                       key={`${groupIndex}-${skill.id}-${skill.name}`}
                       className="skill-card-hover relative border flex flex-col items-center justify-center gap-4 overflow-hidden transition-all duration-[250ms]"
-                      style={{ borderColor: 'var(--border)' }}
+                      // A altura do preenchimento e a posicao do numero saem da mesma variavel.
+                      style={{ borderColor: 'var(--border)', ['--level' as string]: `${level}%` }}
                     >
                       {level > 0 ? (
-                        <span className="skill-level-value font-mono" aria-hidden="true">
+                        <span className="skill-level-corner font-mono" aria-hidden="true">
                           {level}%
                         </span>
                       ) : null}
 
-                      <div className="w-16 h-16 flex items-center justify-center relative z-10">
+                      <div className="skill-icon-wrap w-16 h-16 flex items-center justify-center relative z-10">
                         <SkillIcon iconName={skill.iconName} alt={skill.name} />
                       </div>
 
                       <span
-                        className="font-mono text-[11px] tracking-[0.06em] text-center relative z-10 whitespace-nowrap transition-colors duration-[250ms]"
+                        className="skill-name font-mono text-[11px] tracking-[0.06em] text-center relative z-10 whitespace-nowrap transition-colors duration-[250ms]"
                         style={{ color: 'var(--text-muted)' }}
                       >
                         {skill.name}
                       </span>
 
                       {level > 0 ? (
-                        <span
-                          className="skill-level-bar"
-                          role="img"
-                          aria-label={`${skill.name}: ${level}% ${t('de domínio', 'proficiency')}`}
-                        >
-                          <span className="skill-level-fill" style={{ width: `${level}%` }} />
-                        </span>
+                        <>
+                          <span
+                            className="skill-level-fill"
+                            role="img"
+                            aria-label={`${skill.name}: ${level}% ${t('de domínio', 'proficiency')}`}
+                          />
+                          <span className="skill-level-big" aria-hidden="true">
+                            {level}%
+                          </span>
+                        </>
                       ) : null}
                     </div>
                   )
