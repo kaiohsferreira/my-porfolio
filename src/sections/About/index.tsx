@@ -1,6 +1,7 @@
 import { useLanguage } from '@/context/LanguageContext'
 import { usePortfolioContent } from '@/context/PortfolioContentContext'
 import { SectionHeader } from '@/components/ui/SectionHeader'
+import { TypewriterText } from '@/components/ui/TypewriterText'
 
 const FALLBACK_SKILLS = ['HTML', 'CSS', 'JS', 'C#', 'Python', 'MySQL']
 
@@ -32,7 +33,7 @@ export function About() {
                 </>
               ) : null}
             </p>
-            <p>{biography}</p>
+            {biography ? <TypewriterText text={biography} /> : null}
             <p>
               {profile.location ? (
                 <>
