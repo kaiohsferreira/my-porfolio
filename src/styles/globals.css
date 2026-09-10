@@ -240,6 +240,8 @@ nav.scrolled {
   overflow: hidden;
   padding: 20px 0;
 }
+/* As mascaras ficam no invólucro, e nao no contêiner que rola: dentro dele elas andariam
+   junto com os cartoes. */
 .skills-marquee-wrap::before,
 .skills-marquee-wrap::after {
   content: '';
@@ -257,15 +259,33 @@ nav.scrolled {
   right: 0;
   background: linear-gradient(to left, var(--bg), transparent);
 }
-.skills-marquee-track {
-  display: flex;
-  width: max-content;
-  animation: marqueeScroll 28s linear infinite;
-  will-change: transform;
-}
-.skills-marquee-group { display: flex; }
-.skills-marquee-track:hover { animation-play-state: paused; }
 
+/* A rolagem e nativa: e ela que da o arraste com o dedo no celular e no tablet, com a inercia
+   do proprio sistema. pan-y deixa o gesto vertical passar direto para a pagina. */
+.skills-marquee-scroller {
+  overflow-x: auto;
+  overflow-y: hidden;
+  touch-action: pan-y;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  cursor: grab;
+}
+.skills-marquee-scroller::-webkit-scrollbar { display: none; }
+.skills-marquee-scroller.is-dragging { cursor: grabbing; }
+/* Durante o arraste o texto nao pode ser selecionado, senao o gesto vira selecao. */
+.skills-marquee-scroller.is-dragging * { user-select: none; }
+
+.skills-marquee-track { display: flex; width: max-content; }
+.skills-marquee-group { display: flex; }
+
+.skill-card-hover {
+  width: 140px;
+  height: 140px;
+  flex-shrink: 0;
+  margin-right: 16px;
+  background: var(--surface);
+  cursor: default;
+}
 .skill-card-hover::after {
   content: '';
   position: absolute;
@@ -280,6 +300,61 @@ nav.scrolled {
   transform: scale(1.1);
 }
 .skill-card-hover:hover span { color: var(--green) !important; }
+.skill-card-hover:hover {
+  border-color: var(--green) !important;
+  transform: translateY(-6px);
+  box-shadow: 0 16px 40px oklch(72% 0.25 160 / 0.15);
+}
+
+/* Nivel de dominio: numero no alto e barra na base, ambos entrando no hover. A barra cresce
+   da esquerda para a direita ate a porcentagem cadastrada no painel. */
+.skill-level-value {
+  position: absolute;
+  top: 9px;
+  right: 11px;
+  z-index: 3;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--green);
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+.skill-card-hover:hover .skill-level-value { opacity: 1; transform: none; }
+
+.skill-level-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  z-index: 3;
+  background: var(--border-bright);
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+.skill-card-hover:hover .skill-level-bar { opacity: 1; }
+
+.skill-level-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(to right, var(--green), var(--cyan));
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.05s;
+}
+.skill-card-hover:hover .skill-level-fill { transform: scaleX(1); }
+
+/* Sem hover (toque), o nivel fica sempre visivel: ali nao existe o gesto que o revelaria. */
+@media (hover: none), (pointer: coarse) {
+  .skill-level-value { opacity: 1; transform: none; }
+  .skill-level-bar { opacity: 1; }
+  .skill-level-fill { transform: scaleX(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skill-level-fill { transition: none; }
+}
 
 /* ─── PROJECTS ─── */
 .project-img-overlay {
@@ -404,10 +479,6 @@ nav.scrolled {
   50%       { opacity: 0.4; }
 }
 
-@keyframes marqueeScroll {
-  0%   { transform: translateX(0); }
-  100% { transform: translateX(calc(-1 * var(--skills-loop-shift, 0px))); }
-}
 
 /* ─── RESPONSIVE ─── */
 @media (max-width: 900px) {
