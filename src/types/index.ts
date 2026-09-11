@@ -79,6 +79,5 @@ export interface SocialLink {
   icon: string
 }
 
-export type Theme = 'green' | 'cyan' | 'purple' | 'orange' | 'red' | 'blue'
 
 export type Language = 'pt' | 'en'

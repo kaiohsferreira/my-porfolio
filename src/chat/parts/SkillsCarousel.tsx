@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLanguage } from '@/context/LanguageContext'
 import { usePortfolioContent } from '@/context/PortfolioContentContext'
-import { SectionHeader } from '@/components/ui/SectionHeader'
 import { SKILLS_DATA } from '@/data/portfolio'
 import { getSkillIconUrls } from '@/lib/skill-icons'
 import { SkillMonogram } from '@/components/ui/SkillMonogram'
@@ -38,7 +37,7 @@ function SkillIcon({ iconName, alt }: { iconName: string; alt: string }) {
   )
 }
 
-export function Skills() {
+export function SkillsCarousel() {
   const { t } = useLanguage()
   const { skills } = usePortfolioContent()
   const scrollerRef = useRef<HTMLDivElement>(null)
@@ -234,15 +233,9 @@ export function Skills() {
   }, [visibleSkills.length, repeatCount])
 
   return (
-    <section
-      id="skills"
-      className="border-t"
-      style={{ padding: '140px 0', borderColor: 'var(--border)' }}
-    >
-      <SectionHeader num="02" title={t('Skills', 'Skills')} className="px-12 !mb-16" />
-
-      {/* As máscaras laterais ficam fora do contêiner que rola, senão andariam junto com ele. */}
-      <div className="skills-marquee-wrap reveal">
+    // Dentro de uma mensagem da conversa: sem secao nem cabecalho, e sem a classe reveal —
+    // a entrada da propria mensagem ja faz a animacao.
+    <div className="skills-marquee-wrap">
         <div ref={scrollerRef} className="skills-marquee-scroller">
           <div className="skills-marquee-track">
             {Array.from({ length: repeatCount }, (_, groupIndex) => (
@@ -298,7 +291,6 @@ export function Skills() {
             ))}
           </div>
         </div>
-      </div>
-    </section>
+    </div>
   )
 }

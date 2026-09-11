@@ -1,6 +1,5 @@
 import { Suspense, lazy } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
-import { ThemeProvider } from '@/context/ThemeContext'
 import { LanguageProvider } from '@/context/LanguageContext'
 import { PortfolioContentProvider } from '@/context/PortfolioContentContext'
 import { PortfolioPage } from '@/pages/Portfolio'
@@ -54,31 +53,29 @@ export function App() {
   )
 
   return (
-    <ThemeProvider>
-      <LanguageProvider>
-        <BrowserRouter>
-          <Suspense fallback={adminFallback}>
-            {isAdminHost ? (
-              <Routes>
-                <Route path="*" element={<AdminPage />} />
-              </Routes>
-            ) : (
-              <Routes>
-                <Route
-                  path="/"
-                  element={(
-                    <PortfolioContentProvider>
-                      <PortfolioPage />
-                    </PortfolioContentProvider>
-                  )}
-                />
-                {allowLocalAdminRoute ? <Route path="/admin/*" element={<AdminPage />} /> : null}
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            )}
-          </Suspense>
-        </BrowserRouter>
-      </LanguageProvider>
-    </ThemeProvider>
+    <LanguageProvider>
+      <BrowserRouter>
+        <Suspense fallback={adminFallback}>
+          {isAdminHost ? (
+            <Routes>
+              <Route path="*" element={<AdminPage />} />
+            </Routes>
+          ) : (
+            <Routes>
+              <Route
+                path="/"
+                element={(
+                  <PortfolioContentProvider>
+                    <PortfolioPage />
+                  </PortfolioContentProvider>
+                )}
+              />
+              {allowLocalAdminRoute ? <Route path="/admin/*" element={<AdminPage />} /> : null}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          )}
+        </Suspense>
+      </BrowserRouter>
+    </LanguageProvider>
   )
 }
