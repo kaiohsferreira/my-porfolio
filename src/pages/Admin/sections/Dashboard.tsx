@@ -3,16 +3,27 @@ import { mapMessageToItem, mapProjectToItem } from '../mappers'
 import { sectionEyebrowStyle } from '../styles'
 import type { AdminSection } from '../types'
 import { Icon } from '../ui/Icon'
-import { ButtonOutline, PanelCard, SectionTitle, TagPill } from '../ui/controls'
+import { ButtonOutline, PanelCard, TagPill } from '../ui/controls'
 import { MetricCard } from '../ui/feedback'
+
+/** Saudação pela hora local de quem abre o painel. */
+function greeting() {
+  const hour = new Date().getHours()
+  if (hour < 12) return 'Bom dia'
+  if (hour < 18) return 'Boa tarde'
+  return 'Boa noite'
+}
 
 export function Dashboard({
   dashboard,
   visitorStats,
+  userName,
   onNav,
 }: {
   dashboard: DashboardSummary | null
   visitorStats: VisitorStatsAdmin | null
+  /** Primeiro nome de quem está logado, para a saudação do início. */
+  userName?: string
   onNav: (section: AdminSection) => void
 }) {
   const recentMessages = dashboard?.recentMessages.map(mapMessageToItem) || []
@@ -23,16 +34,23 @@ export function Dashboard({
 
   return (
     <div>
-      <SectionTitle num="00 /" title="Dashboard" />
+      <div style={{ marginBottom: 28 }}>
+        <h2 style={{ fontSize: 34, letterSpacing: '-0.02em', lineHeight: 1.15, margin: 0 }}>
+          {greeting()}{userName ? `, ${userName}` : ''}
+        </h2>
+        <p style={{ margin: '8px 0 0', fontSize: 15, color: 'var(--text-muted)' }}>
+          Um resumo do que está acontecendo no seu portfólio.
+        </p>
+      </div>
 
       <div className="admin-grid-4">
         <MetricCard label="Projetos" value={dashboard?.publishedProjectsCount ?? 0} sub="publicados" icon="projects" />
         <MetricCard label="Skills" value={dashboard?.skillsCount ?? 0} sub="mapeadas no painel" icon="skills" color="var(--cyan)" />
-        <MetricCard label="Mensagens" value={dashboard?.unreadMessagesCount ?? 0} sub="nao lidas" icon="messages" color="oklch(78% 0.18 90)" />
+        <MetricCard label="Mensagens" value={dashboard?.unreadMessagesCount ?? 0} sub="não lidas" icon="messages" color="var(--warning)" />
         <MetricCard
           label="Visitantes"
           value={dashboard?.visitorsThisMonth ?? 0}
-          sub={`${dashboard?.visitorGrowthPercent ?? 0}% em relacao ao mes anterior`}
+          sub={`${dashboard?.visitorGrowthPercent ?? 0}% em relação ao mês anterior`}
           icon="visitors"
           color="var(--cyan)"
         />
@@ -42,8 +60,8 @@ export function Dashboard({
         <PanelCard accent="linear-gradient(to right, var(--green), transparent)">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20 }}>
             <div>
-              <div style={sectionEyebrowStyle}>Visitantes por mes</div>
-              <h3 style={{ fontSize: 20, marginTop: 8 }}>Tendencia de acesso</h3>
+              <div style={sectionEyebrowStyle}>Visitantes por mês</div>
+              <h3 style={{ fontSize: 20, marginTop: 8 }}>Tendência de acesso</h3>
             </div>
             <TagPill label={visitorStats?.topCountry || 'sem dados'} color="cyan" />
           </div>
@@ -57,15 +75,15 @@ export function Dashboard({
                     background:
                       index === chartData.length - 1
                         ? 'linear-gradient(180deg, var(--green), var(--cyan))'
-                        : 'linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04))',
-                    border: '1px solid var(--border)',
+                        : 'var(--bg2)',
+                    borderRadius: '8px 8px 4px 4px',
                   }}
                 />
                 <span style={{ ...sectionEyebrowStyle, color: index === chartData.length - 1 ? 'var(--green)' : 'var(--text-dim)' }}>
                   {visitorStats?.monthlyChart[index]?.month.slice(5) || index + 1}
                 </span>
               </div>
-            )) : <div style={{ color: 'var(--text-muted)' }}>Nenhum dado mensal disponivel ainda.</div>}
+            )) : <div style={{ color: 'var(--text-muted)' }}>Nenhum dado mensal disponível ainda.</div>}
           </div>
         </PanelCard>
 
@@ -79,7 +97,7 @@ export function Dashboard({
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {recentMessages.length ? recentMessages.map((message) => (
-              <div key={message.id} style={{ border: '1px solid var(--border)', padding: 16, background: 'rgba(255,255,255,0.02)' }}>
+              <div key={message.id} style={{ border: '1px solid var(--border)', padding: 16, background: 'rgba(40, 34, 64, 0.028)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                   <strong style={{ fontSize: 15 }}>{message.name}</strong>
                   {message.read ? <TagPill label="Lida" color="cyan" /> : <TagPill label="Nova" color="green" />}

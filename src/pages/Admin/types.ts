@@ -104,15 +104,15 @@ export type IconName =
   | 'trending'
 
 export const NAV_ITEMS: NavItem[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
+  { id: 'dashboard', label: 'Início', icon: 'dashboard' },
   { id: 'projects', label: 'Projetos', icon: 'projects' },
   { id: 'skills', label: 'Skills', icon: 'skills' },
-  { id: 'experiences', label: 'Experiencias', icon: 'experiences' },
+  { id: 'experiences', label: 'Experiências', icon: 'experiences' },
   { id: 'messages', label: 'Mensagens', icon: 'messages', badge: 2 },
   { id: 'visitors', label: 'Visitantes', icon: 'visitors' },
-  { id: 'about', label: 'Sobre / Bio', icon: 'about' },
-  { id: 'links', label: 'Links Sociais', icon: 'links' },
-  { id: 'settings', label: 'Configuracoes', icon: 'settings' },
+  { id: 'about', label: 'Perfil', icon: 'about' },
+  { id: 'links', label: 'Links sociais', icon: 'links' },
+  { id: 'settings', label: 'Configurações', icon: 'settings' },
 ]
 
 export const ABOUT_INITIAL_STATE: AboutState = {

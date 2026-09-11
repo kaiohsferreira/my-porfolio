@@ -49,7 +49,7 @@ export function ProjectsList({
       />
 
       <PanelCard>
-        {error ? <div style={{ color: 'oklch(65% 0.22 25)', fontSize: 13, marginBottom: 16 }}>{error}</div> : null}
+        {error ? <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 16 }}>{error}</div> : null}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
           <div style={{ position: 'relative', flex: '1 1 280px' }}>
             <span style={{ position: 'absolute', left: 14, top: 13, color: 'var(--text-dim)' }}>
@@ -118,7 +118,7 @@ export function ProjectsList({
                       <IconButton
                         icon="trash"
                         label="Remover projeto"
-                        color="oklch(65% 0.22 25)"
+                        color="var(--danger)"
                         onClick={() =>
                           void (async () => {
                             try {
@@ -249,18 +249,17 @@ export function ProjectForm({
             background: 'none',
             border: 'none',
             color: 'var(--text-muted)',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 12,
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
+            fontFamily: 'var(--font-display)',
+            fontSize: 14,
+            fontWeight: 500,
           }}
         >
           <Icon name="arrowLeft" size={14} color="currentColor" />
-          voltar
+          Voltar
         </button>
       </div>
 
-      <SectionTitle num={isNew ? '01 / NEW' : '01 / EDIT'} title={isNew ? 'Novo Projeto' : `Editar: ${form.title || 'projeto'}`} />
+      <SectionTitle num={isNew ? '01 / NEW' : '01 / EDIT'} title={isNew ? 'Novo projeto' : `Editar: ${form.title || 'projeto'}`} />
 
       <form onSubmit={submit} className="admin-grid-2">
         <PanelCard accent="linear-gradient(to right, var(--green), transparent)">
@@ -295,32 +294,32 @@ export function ProjectForm({
                     onClick={() => setForm({ ...form, status: 'draft' })}
                     style={{
                       border: '1px solid var(--border-bright)',
-                      background: form.status === 'draft' ? 'oklch(78% 0.18 90 / 0.14)' : 'transparent',
-                      color: form.status === 'draft' ? 'oklch(78% 0.18 90)' : 'var(--text-muted)',
+                      borderRadius: 999,
+                      background: form.status === 'draft' ? 'rgba(168, 116, 26, 0.14)' : 'transparent',
+                      color: form.status === 'draft' ? 'var(--warning)' : 'var(--text-muted)',
                       padding: '9px 12px',
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: 11,
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
+                      fontFamily: 'var(--font-display)',
+                      fontSize: 13,
+                      fontWeight: 500,
                     }}
                   >
-                    rascunho
+                    Rascunho
                   </button>
                   <button
                     type="button"
                     onClick={() => setForm({ ...form, status: 'published' })}
                     style={{
                       border: '1px solid var(--border-bright)',
+                      borderRadius: 999,
                       background: form.status === 'published' ? 'var(--green-glow)' : 'transparent',
                       color: form.status === 'published' ? 'var(--green)' : 'var(--text-muted)',
                       padding: '9px 12px',
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: 11,
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
+                      fontFamily: 'var(--font-display)',
+                      fontSize: 13,
+                      fontWeight: 500,
                     }}
                   >
-                    publicado
+                    Publicado
                   </button>
                 </div>
               </div>
@@ -348,13 +347,13 @@ export function ProjectForm({
               </div>
               {form.liveUrl ? (
                 <a href={withProtocol(form.liveUrl)} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: 16, color: 'var(--cyan)', textDecoration: 'none', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
-                  abrir projeto
+                  Abrir projeto
                 </a>
               ) : null}
             </div>
           </PanelCard>
 
-          {error ? <div style={{ color: 'oklch(65% 0.22 25)', fontSize: 13 }}>{error}</div> : null}
+          {error ? <div style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</div> : null}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
             <ButtonOutline onClick={onBack}>cancelar</ButtonOutline>
             <ButtonPrimary type="submit">{saving ? 'salvando...' : isNew ? 'criar projeto' : 'salvar projeto'}</ButtonPrimary>

@@ -132,7 +132,7 @@ export function LinksSection({
     <div>
       <SectionTitle
         num="07 /"
-        title="Links Sociais"
+        title="Links sociais"
         action={
           <ButtonPrimary
             icon="plus"
@@ -148,7 +148,7 @@ export function LinksSection({
         }
       />
 
-      {error ? <div style={{ color: 'oklch(65% 0.22 25)', fontSize: 13, marginBottom: 16 }}>{error}</div> : null}
+      {error ? <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 16 }}>{error}</div> : null}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 760 }}>
         {[...links].sort((a, b) => a.sortOrder - b.sortOrder).map((link, index) => (
@@ -216,7 +216,7 @@ export function LinksSection({
                 <IconButton
                   icon="trash"
                   label="Remover link"
-                  color="oklch(65% 0.22 25)"
+                  color="var(--danger)"
                   onClick={() => void removeLink(link)}
                 />
               </div>

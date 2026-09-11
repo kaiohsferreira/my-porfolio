@@ -50,13 +50,13 @@ export function LoginScreen({ onLogin }: { onLogin: (session: AdminAuthSession) 
 
       const session = await loginAdmin(email.trim(), password)
       if (!session?.token) {
-        setError('A API nao retornou um token valido.')
+        setError('A API não retornou um token válido.')
         return
       }
 
       onLogin(session)
     } catch (loginError) {
-      setError(isApiError(loginError) ? loginError.message : 'Nao foi possivel autenticar no backend.')
+      setError(isApiError(loginError) ? loginError.message : 'Não foi possível entrar agora. Tente de novo em instantes.')
     } finally {
       setLoading(false)
     }
@@ -77,19 +77,22 @@ export function LoginScreen({ onLogin }: { onLogin: (session: AdminAuthSession) 
         accent="linear-gradient(to right, var(--green), var(--cyan))"
         style={{ width: 'min(100%, 520px)', padding: 32 }}
       >
-        <div style={sectionEyebrowStyle}>Painel privado</div>
-        <h1 style={{ fontSize: 34, fontWeight: 700, letterSpacing: '-0.03em', marginTop: 12 }}>KAIO.ADMIN</h1>
+        <div style={sectionEyebrowStyle}>Painel do portfólio</div>
+        <h1 style={{ fontSize: 36, letterSpacing: '-0.02em', lineHeight: 1.1, marginTop: 10 }}>Bem-vindo de volta</h1>
         <p style={{ marginTop: 10, fontSize: 15, color: 'var(--text-muted)', lineHeight: 1.7 }}>
-          Area administrativa isolada para gestao do portfolio, conteudo e configuracoes do painel.
+          Entre para atualizar seus projetos, skills, experiências e tudo o que aparece na conversa pública.
         </p>
 
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 28 }}>
           <TextField label="Email" value={email} onChange={setEmail} placeholder="voce@dominio.com" type="email" />
           <TextField label="Senha" value={password} onChange={setPassword} placeholder="Digite sua senha" type="password" />
-          {error ? <div style={{ color: 'oklch(65% 0.22 25)', fontSize: 13 }}>{error}</div> : null}
+          {error ? <div style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</div> : null}
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-            <span style={{ ...sectionEyebrowStyle, color: 'var(--green)' }}>Acesso restrito</span>
-            <ButtonPrimary type="submit">{loading ? 'entrando...' : 'Entrar no painel'}</ButtonPrimary>
+            <span style={{ ...sectionEyebrowStyle, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span className="admin-status-online" aria-hidden="true" />
+              Acesso restrito
+            </span>
+            <ButtonPrimary type="submit">{loading ? 'Entrando…' : 'Entrar no painel'}</ButtonPrimary>
           </div>
         </form>
       </PanelCard>
@@ -266,7 +269,7 @@ export function PortfolioSetupScreen({
                 setError('')
               }}
             >
-              voltar
+              Voltar
             </ButtonOutline>
           ) : null}
           <div style={sectionEyebrowStyle}>Onboarding do portfolio</div>
@@ -347,7 +350,7 @@ export function PortfolioSetupScreen({
               </div>
             </div>
 
-            {error ? <div style={{ color: 'oklch(65% 0.22 25)', fontSize: 13 }}>{error}</div> : null}
+            {error ? <div style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</div> : null}
 
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', marginTop: 8 }}>
               <span style={{ ...sectionEyebrowStyle, color: 'var(--cyan)' }}>Setup inicial obrigatorio</span>
@@ -445,7 +448,7 @@ export function PortfolioSetupScreen({
               </div>
             </div>
 
-            {error ? <div style={{ color: 'oklch(65% 0.22 25)', fontSize: 13 }}>{error}</div> : null}
+            {error ? <div style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</div> : null}
 
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', marginTop: 8 }}>
               <span style={{ ...sectionEyebrowStyle, color: 'var(--green)' }}>Etapa 2: criacao do perfil principal</span>

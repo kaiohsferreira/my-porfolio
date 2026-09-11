@@ -47,25 +47,25 @@ export function AdminToast({
   const meta = getAdminNoticeMeta(message)
   const palette = {
     error: {
-      accent: 'linear-gradient(90deg, oklch(65% 0.22 25), oklch(78% 0.19 55))',
-      border: 'oklch(65% 0.22 25 / 0.35)',
-      glow: '0 24px 70px oklch(10% 0 0 / 0.55), 0 0 0 1px oklch(65% 0.22 25 / 0.12)',
-      badgeBg: 'oklch(65% 0.22 25 / 0.16)',
-      badgeText: 'oklch(78% 0.19 55)',
-      icon: 'oklch(72% 0.2 40)',
+      accent: 'linear-gradient(90deg, var(--danger), var(--warning))',
+      border: 'rgba(179, 69, 59, 0.35)',
+      glow: '0 24px 70px rgba(39, 35, 58, 0.4), 0 0 0 1px rgba(179, 69, 59, 0.12)',
+      badgeBg: 'rgba(179, 69, 59, 0.16)',
+      badgeText: 'var(--warning)',
+      icon: 'var(--danger)',
     },
     warning: {
-      accent: 'linear-gradient(90deg, oklch(78% 0.18 90), oklch(72% 0.22 160))',
-      border: 'oklch(78% 0.18 90 / 0.32)',
-      glow: '0 24px 70px oklch(10% 0 0 / 0.55), 0 0 0 1px oklch(78% 0.18 90 / 0.1)',
-      badgeBg: 'oklch(78% 0.18 90 / 0.14)',
-      badgeText: 'oklch(82% 0.16 96)',
-      icon: 'oklch(78% 0.18 90)',
+      accent: 'linear-gradient(90deg, var(--warning), var(--green))',
+      border: 'rgba(168, 116, 26, 0.32)',
+      glow: '0 24px 70px rgba(39, 35, 58, 0.4), 0 0 0 1px rgba(168, 116, 26, 0.1)',
+      badgeBg: 'rgba(168, 116, 26, 0.14)',
+      badgeText: 'var(--warning)',
+      icon: 'var(--warning)',
     },
     info: {
       accent: 'linear-gradient(90deg, var(--cyan), var(--green))',
-      border: 'oklch(72% 0.25 220 / 0.3)',
-      glow: '0 24px 70px oklch(10% 0 0 / 0.55), 0 0 0 1px oklch(72% 0.25 220 / 0.1)',
+      border: 'rgba(90, 147, 173, 0.3)',
+      glow: '0 24px 70px rgba(39, 35, 58, 0.4), 0 0 0 1px rgba(90, 147, 173, 0.1)',
       badgeBg: 'var(--cyan-glow)',
       badgeText: 'var(--cyan)',
       icon: 'var(--cyan)',
@@ -88,7 +88,7 @@ export function AdminToast({
           position: 'relative',
           overflow: 'hidden',
           border: `1px solid ${palette.border}`,
-          background: 'linear-gradient(180deg, rgba(18,18,28,0.98) 0%, rgba(9,9,15,0.98) 100%)',
+          background: 'var(--surface)',
           backdropFilter: 'blur(18px)',
           boxShadow: palette.glow,
         }}
@@ -126,7 +126,7 @@ export function AdminToast({
                 border: `1px solid ${palette.border}`,
                 background: palette.badgeBg,
                 color: palette.icon,
-                clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
+                borderRadius: 999,
               }}
             >
               <Icon name={meta.tone === 'warning' ? 'about' : 'messages'} size={18} color={palette.icon} />
@@ -159,7 +159,7 @@ export function AdminToast({
                     display: 'grid',
                     placeItems: 'center',
                     border: '1px solid var(--border)',
-                    background: 'rgba(255,255,255,0.02)',
+                    background: 'rgba(40, 34, 64, 0.028)',
                     color: 'var(--text-muted)',
                     transition: 'transform 0.18s ease, border-color 0.18s ease, color 0.18s ease',
                   }}
@@ -238,7 +238,7 @@ export function TagInput({
               alignItems: 'center',
               gap: 6,
               background: 'var(--cyan-glow)',
-              border: '1px solid oklch(72% 0.25 220 / 0.35)',
+              border: '1px solid rgba(90, 147, 173, 0.35)',
               color: 'var(--cyan)',
               padding: '4px 8px',
               fontFamily: 'var(--font-mono)',
@@ -315,17 +315,17 @@ export function MetricCard({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
         <div>
           <div style={sectionEyebrowStyle}>{label}</div>
-          <div style={{ fontSize: 38, fontWeight: 700, letterSpacing: '-0.04em', marginTop: 12, color: 'var(--text)' }}>{value}</div>
+          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 40, fontWeight: 500, letterSpacing: '-0.02em', lineHeight: 1.05, marginTop: 10, color: 'var(--text)' }}>{value}</div>
           <div style={{ marginTop: 8, fontSize: 13, color: 'var(--text-muted)' }}>{sub}</div>
         </div>
         <div
           style={{
             width: 44,
             height: 44,
+            borderRadius: '50%',
             display: 'grid',
             placeItems: 'center',
-            border: '1px solid var(--border)',
-            background: 'rgba(255,255,255,0.02)',
+            background: 'var(--green-glow)',
             color,
           }}
         >

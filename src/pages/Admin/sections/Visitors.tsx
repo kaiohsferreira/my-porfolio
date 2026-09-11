@@ -13,7 +13,7 @@ export function VisitorsSection({ visitorStats }: { visitorStats: VisitorStatsAd
 
       <div className="admin-grid-4">
         <MetricCard label="Visitantes no mes" value={visitorStats?.totalThisMonth ?? 0} sub={`${visitorStats?.totalLastMonth ?? 0} no mes anterior`} icon="visitors" />
-        <MetricCard label="Crescimento" value={`${visitorStats?.growthPercent ?? 0}%`} sub="variacao mensal" icon="trending" color="oklch(78% 0.18 90)" />
+        <MetricCard label="Crescimento" value={`${visitorStats?.growthPercent ?? 0}%`} sub="variacao mensal" icon="trending" color="var(--warning)" />
         <MetricCard label="Top origem" value={visitorStats?.topCountry || 'Sem dados'} sub="maior volume atual" icon="globe" color="var(--cyan)" />
         <MetricCard label="Sessoes unicas" value={visitorStats?.uniqueSessionsThisMonth ?? 0} sub="usuarios distintos no mes" icon="dashboard" color="var(--cyan)" />
       </div>
@@ -48,7 +48,7 @@ export function VisitorsSection({ visitorStats }: { visitorStats: VisitorStatsAd
                     background:
                       index === chartData.length - 1
                         ? 'linear-gradient(180deg, var(--green), var(--cyan))'
-                        : 'linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04))',
+                        : 'linear-gradient(180deg, rgba(40, 34, 64, 0.168), rgba(40, 34, 64, 0.056))',
                     border: '1px solid var(--border)',
                   }}
                 />

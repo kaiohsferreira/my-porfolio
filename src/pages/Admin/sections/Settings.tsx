@@ -59,7 +59,7 @@ export function SettingsSection({
 
   return (
     <div>
-      <SectionTitle num="08 /" title="Configuracoes" />
+      <SectionTitle num="08 /" title="Configurações" />
 
       <div className="admin-grid-2">
         <PanelCard accent="linear-gradient(to right, var(--green), var(--cyan))">
@@ -86,7 +86,7 @@ export function SettingsSection({
             />
 
             {error ? (
-              <div role="alert" style={{ color: 'oklch(65% 0.22 25)', fontSize: 13, lineHeight: 1.6 }}>
+              <div role="alert" style={{ color: 'var(--danger)', fontSize: 13, lineHeight: 1.6 }}>
                 {error}
               </div>
             ) : null}

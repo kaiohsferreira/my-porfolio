@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import { readFileAsDataUrl } from '@/lib/file-utils'
 import {
   type AdminAuthSession,
@@ -99,6 +99,13 @@ import {
 import { AdminToast } from './ui/feedback'
 
 export function AdminPage() {
+  // A paleta suave (a mesma da conversa pública) vive no body enquanto o painel está montado:
+  // assim toasts e modais abertos por portal também a herdam.
+  useLayoutEffect(() => {
+    document.body.classList.add('admin-mode')
+    return () => document.body.classList.remove('admin-mode')
+  }, [])
+
   const [authSession, setAuthSession] = useState<AdminAuthSession | null>(() => getStoredAdminSession())
   const [currentUser, setCurrentUser] = useState<AdminUserInfo | null>(() => getStoredAdminSession()?.user || null)
   const [page, setPage] = useState<AdminSection>('dashboard')
@@ -881,7 +888,7 @@ export function AdminPage() {
       )
     }
 
-    return <Dashboard dashboard={dashboardData} visitorStats={visitorStats} onNav={navigate} />
+    return <Dashboard userName={(currentUser?.name || currentUser?.fullName || '').trim().split(/\s+/)[0]} dashboard={dashboardData} visitorStats={visitorStats} onNav={navigate} />
   }
 
   if (!loggedIn) {

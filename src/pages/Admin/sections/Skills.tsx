@@ -42,7 +42,7 @@ export function SkillsList({
         action={<ButtonPrimary icon="plus" onClick={onCreate}>nova skill</ButtonPrimary>}
       />
 
-      {error ? <div style={{ color: 'oklch(65% 0.22 25)', fontSize: 13, marginBottom: 16 }}>{error}</div> : null}
+      {error ? <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 16 }}>{error}</div> : null}
       <div className="admin-grid-3">
         {Object.entries(groups).map(([category, items]) => (
           <PanelCard key={category}>
@@ -60,7 +60,7 @@ export function SkillsList({
                       <IconButton
                         icon="trash"
                         label="Remover skill"
-                        color="oklch(65% 0.22 25)"
+                        color="var(--danger)"
                         onClick={() =>
                           void (async () => {
                             try {
@@ -137,18 +137,17 @@ export function SkillForm({
             background: 'none',
             border: 'none',
             color: 'var(--text-muted)',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 12,
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
+            fontFamily: 'var(--font-display)',
+            fontSize: 14,
+            fontWeight: 500,
           }}
         >
           <Icon name="arrowLeft" size={14} color="currentColor" />
-          voltar
+          Voltar
         </button>
       </div>
 
-      <SectionTitle num={isNew ? '02 / NEW' : '02 / EDIT'} title={isNew ? 'Nova Skill' : `Editar: ${form.name || 'skill'}`} />
+      <SectionTitle num={isNew ? '02 / NEW' : '02 / EDIT'} title={isNew ? 'Nova skill' : `Editar: ${form.name || 'skill'}`} />
 
       <form onSubmit={submit} className="admin-grid-2">
         <PanelCard accent="linear-gradient(to right, var(--cyan), transparent)">
@@ -183,7 +182,7 @@ export function SkillForm({
                     display: 'grid',
                     placeItems: 'center',
                     border: '1px solid var(--border)',
-                    background: 'rgba(255,255,255,0.02)',
+                    background: 'rgba(40, 34, 64, 0.028)',
                   }}
                 >
                   <IconAsset iconName={form.iconName} size={30} fallbackName={form.name} />
@@ -202,7 +201,7 @@ export function SkillForm({
               </div>
             </div>
           </PanelCard>
-          {error ? <div style={{ color: 'oklch(65% 0.22 25)', fontSize: 13 }}>{error}</div> : null}
+          {error ? <div style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</div> : null}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
             <ButtonOutline onClick={onBack}>cancelar</ButtonOutline>
             <ButtonPrimary type="submit">{saving ? 'salvando...' : isNew ? 'criar skill' : 'salvar skill'}</ButtonPrimary>

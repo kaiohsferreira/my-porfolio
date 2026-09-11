@@ -1,39 +1,13 @@
 /* ─── PORTFÓLIO EM CONVERSA ───────────────────────────────────────────────────────────────
-   A paleta é aplicada no body enquanto a conversa está montada (classe chat-mode). Ela
-   redefine as mesmas variáveis que o resto do site já consome, então os componentes
-   reaproveitados — carrossel de skills, prévia de projeto, capa — mudam de cor sozinhos, e o
-   painel admin, que também usa essas variáveis, fica exatamente como estava. */
+   A paleta suave vive no globals.css (body.chat-mode), compartilhada com o painel admin.
+   Aqui ficam só as medidas e os componentes próprios da conversa. */
 
 body.chat-mode {
-  --bg: #f6f4f9;
-  --bg2: #efecf5;
-  --bg3: #f3f1f8;
-  --surface: #ffffff;
-  --surface2: #fbfafd;
-  --border: rgba(40, 34, 64, 0.08);
-  --border-bright: rgba(40, 34, 64, 0.15);
-  --text: #27233a;
-  --text-muted: #6d6883;
-  --text-dim: #a9a4bd;
-  --green: #6b5bb0;
-  --cyan: #5a93ad;
-  --green-glow: rgba(107, 91, 176, 0.12);
-  --cyan-glow: rgba(90, 147, 173, 0.12);
-  --font-display: 'Inter', system-ui, sans-serif;
-
   --chat-serif: 'Fraunces', Georgia, serif;
   --chat-radius: 20px;
   --chat-shadow: 0 1px 2px rgba(40, 34, 64, 0.04), 0 10px 28px rgba(40, 34, 64, 0.06);
   --chat-col: 760px;
-
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-display);
-  cursor: auto;
 }
-
-/* A textura de ruído do tema antigo não combina com a superfície lisa daqui. */
-body.chat-mode::before { display: none; }
 
 .chat-app {
   min-height: 100vh;

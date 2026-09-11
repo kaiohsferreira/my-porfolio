@@ -28,7 +28,11 @@ export function PanelCard({ children, accent, style }: { children: ReactNode; ac
   )
 }
 
-export function SectionTitle({ num, title, action }: { num: string; title: string; action?: ReactNode }) {
+/**
+ * Título de cada seção. O número ("08 /") vinha do visual de terminal e saiu; o parâmetro
+ * continua aceito para as chamadas existentes não precisarem mudar.
+ */
+export function SectionTitle({ title, action }: { num?: string; title: string; action?: ReactNode }) {
   return (
     <div
       style={{
@@ -37,13 +41,12 @@ export function SectionTitle({ num, title, action }: { num: string; title: strin
         gap: 18,
         justifyContent: 'space-between',
         flexWrap: 'wrap',
-        marginBottom: 24,
+        marginBottom: 28,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 0 }}>
-        <span style={{ ...sectionEyebrowStyle, color: 'var(--green)' }}>{num}</span>
-        <h2 style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.03em', color: 'var(--text)' }}>{title}</h2>
-      </div>
+      <h2 style={{ fontSize: 32, letterSpacing: '-0.02em', color: 'var(--text)', lineHeight: 1.15, margin: 0 }}>
+        {title}
+      </h2>
       {action}
     </div>
   )
@@ -69,25 +72,25 @@ export function ButtonPrimary({
       type={type}
       onClick={onClick}
       disabled={disabled}
+      className="admin-btn admin-btn-primary"
       style={{
         display: 'inline-flex',
         alignItems: 'center',
         gap: 8,
         border: 'none',
+        borderRadius: 999,
         background: disabled ? 'rgba(130, 140, 160, 0.28)' : 'var(--green)',
-        color: 'var(--bg)',
-        padding: small ? '9px 12px' : '12px 16px',
-        fontFamily: 'var(--font-mono)',
-        fontSize: small ? 11 : 12,
-        letterSpacing: '0.08em',
-        textTransform: 'uppercase',
-        clipPath: 'polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px))',
+        color: '#fff',
+        padding: small ? '8px 14px' : '11px 20px',
+        fontFamily: 'var(--font-display)',
+        fontSize: small ? 13 : 14,
+        fontWeight: 500,
         opacity: disabled ? 0.6 : 1,
         cursor: disabled ? 'not-allowed' : 'pointer',
       }}
     >
-      {icon ? <Icon name={icon} size={14} color="var(--bg)" /> : null}
-      {children}
+      {icon ? <Icon name={icon} size={15} color="#fff" /> : null}
+      <span className="admin-btn-label">{children}</span>
     </button>
   )
 }
@@ -107,23 +110,23 @@ export function ButtonOutline({
     <button
       type="button"
       onClick={onClick}
+      className="admin-btn admin-btn-outline"
       style={{
         display: 'inline-flex',
         alignItems: 'center',
         gap: 8,
         border: '1px solid var(--border-bright)',
-        background: 'transparent',
+        borderRadius: 999,
+        background: 'var(--surface)',
         color: 'var(--text)',
-        padding: small ? '9px 12px' : '12px 16px',
-        fontFamily: 'var(--font-mono)',
-        fontSize: small ? 11 : 12,
-        letterSpacing: '0.08em',
-        textTransform: 'uppercase',
-        clipPath: 'polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px))',
+        padding: small ? '8px 14px' : '11px 20px',
+        fontFamily: 'var(--font-display)',
+        fontSize: small ? 13 : 14,
+        fontWeight: 500,
       }}
     >
-      {icon ? <Icon name={icon} size={14} color="var(--text)" /> : null}
-      {children}
+      {icon ? <Icon name={icon} size={15} color="currentColor" /> : null}
+      <span className="admin-btn-label">{children}</span>
     </button>
   )
 }
@@ -274,7 +277,7 @@ export function IconCombobox({
       <div
         style={{
           border: '1px solid var(--border)',
-          background: 'rgba(255,255,255,0.01)',
+          background: 'rgba(40, 34, 64, 0.014)',
           padding: 14,
           display: 'flex',
           flexDirection: 'column',
@@ -335,8 +338,8 @@ export function IconCombobox({
                   display: 'flex',
                   alignItems: 'center',
                   gap: 10,
-                  border: `1px solid ${selected ? 'oklch(72% 0.25 160 / 0.35)' : 'var(--border)'}`,
-                  background: selected ? 'var(--green-glow)' : 'rgba(255,255,255,0.01)',
+                  border: `1px solid ${selected ? 'rgba(107, 91, 176, 0.35)' : 'var(--border)'}`,
+                  background: selected ? 'var(--green-glow)' : 'rgba(40, 34, 64, 0.014)',
                   color: selected ? 'var(--green)' : 'var(--text)',
                   padding: '10px 12px',
                   textAlign: 'left',
@@ -411,7 +414,7 @@ export function AssetUploadField({
       <div
         style={{
           border: '1px solid var(--border)',
-          background: 'linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01))',
+          background: 'var(--bg3)',
           padding: 14,
           display: 'flex',
           flexDirection: 'column',
@@ -429,7 +432,7 @@ export function AssetUploadField({
               display: 'grid',
               placeItems: 'center',
               border: '1px solid var(--border-bright)',
-              background: 'rgba(255,255,255,0.02)',
+              background: 'rgba(40, 34, 64, 0.028)',
               overflow: 'hidden',
             }}
           >
@@ -537,22 +540,22 @@ export function TagPill({ label, color = 'green' }: { label: string; color?: 'gr
     green: {
       text: 'var(--green)',
       background: 'var(--green-glow)',
-      border: 'oklch(72% 0.25 160 / 0.35)',
+      border: 'rgba(107, 91, 176, 0.35)',
     },
     cyan: {
       text: 'var(--cyan)',
       background: 'var(--cyan-glow)',
-      border: 'oklch(72% 0.25 220 / 0.35)',
+      border: 'rgba(90, 147, 173, 0.35)',
     },
     red: {
-      text: 'oklch(65% 0.22 25)',
-      background: 'oklch(65% 0.22 25 / 0.14)',
-      border: 'oklch(65% 0.22 25 / 0.35)',
+      text: 'var(--danger)',
+      background: 'rgba(179, 69, 59, 0.14)',
+      border: 'rgba(179, 69, 59, 0.35)',
     },
     yellow: {
-      text: 'oklch(78% 0.18 90)',
-      background: 'oklch(78% 0.18 90 / 0.14)',
-      border: 'oklch(78% 0.18 90 / 0.35)',
+      text: 'var(--warning)',
+      background: 'rgba(168, 116, 26, 0.14)',
+      border: 'rgba(168, 116, 26, 0.35)',
     },
   }[color]
 
@@ -565,11 +568,10 @@ export function TagPill({ label, color = 'green' }: { label: string; color?: 'gr
         background: palette.background,
         color: palette.text,
         padding: '3px 10px',
-        fontFamily: 'var(--font-mono)',
-        fontSize: 11,
-        letterSpacing: '0.08em',
-        textTransform: 'uppercase',
-        clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+        fontFamily: 'var(--font-display)',
+        fontSize: 13,
+        fontWeight: 500,
+        borderRadius: 999,
       }}
     >
       {label}

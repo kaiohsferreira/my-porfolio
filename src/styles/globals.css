@@ -48,6 +48,43 @@
   ::-webkit-scrollbar-thumb:hover { background: var(--green); }
 }
 
+/* ─── PALETA SUAVE ─── 
+   Vale para a conversa pública (chat-mode) e para o painel admin (admin-mode). As duas
+   classes vão no body enquanto a respectiva tela está montada: redefinem as mesmas
+   variáveis que todo o site já consome, então componentes reaproveitados e modais abertos
+   por portal, fora da árvore, mudam de cor sozinhos. */
+body.chat-mode,
+body.admin-mode {
+  --bg: #f6f4f9;
+  --bg2: #efecf5;
+  --bg3: #f3f1f8;
+  --surface: #ffffff;
+  --surface2: #fbfafd;
+  --border: rgba(40, 34, 64, 0.08);
+  --border-bright: rgba(40, 34, 64, 0.15);
+  --text: #27233a;
+  --text-muted: #6d6883;
+  --text-dim: #a9a4bd;
+  --green: #6b5bb0;
+  --cyan: #5a93ad;
+  --green-glow: rgba(107, 91, 176, 0.12);
+  --cyan-glow: rgba(90, 147, 173, 0.12);
+  --danger: #b3453b;
+  --warning: #a8741a;
+  --success: #2f8a5f;
+  --font-display: 'Inter', system-ui, sans-serif;
+  --font-serif: 'Fraunces', Georgia, serif;
+
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-display);
+  cursor: auto;
+}
+
+/* A textura de ruído do visual antigo não combina com a superfície lisa. */
+body.chat-mode::before,
+body.admin-mode::before { display: none; }
+
 /* ─── SKILLS MARQUEE ─── */
 .skills-marquee-wrap {
   position: relative;

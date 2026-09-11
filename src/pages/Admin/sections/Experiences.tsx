@@ -102,11 +102,11 @@ export function ExperiencesSection({
     <div>
       <SectionTitle
         num="03 /"
-        title="Experiencias"
+        title="Experiências"
         action={<ButtonPrimary icon="plus" onClick={startCreate}>nova experiencia</ButtonPrimary>}
       />
 
-      {error ? <div style={{ color: 'oklch(65% 0.22 25)', fontSize: 13, marginBottom: 16 }}>{error}</div> : null}
+      {error ? <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 16 }}>{error}</div> : null}
       <div className="admin-grid-2">
         <PanelCard>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -124,7 +124,7 @@ export function ExperiencesSection({
                     <IconButton
                       icon="trash"
                       label="Remover experiencia"
-                      color="oklch(65% 0.22 25)"
+                      color="var(--danger)"
                       onClick={() => void remove(experience.id)}
                     />
                   </div>

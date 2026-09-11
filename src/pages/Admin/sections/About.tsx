@@ -222,7 +222,7 @@ export function AboutSection({
 
   return (
     <div>
-      <SectionTitle num="06 /" title="Sobre / Bio" />
+      <SectionTitle num="06 /" title="Perfil" />
 
       <div className="admin-grid-2">
         <PanelCard accent="linear-gradient(to right, var(--green), var(--cyan))">
@@ -265,7 +265,7 @@ export function AboutSection({
                 onRemove={() => void handleRemoveAsset('resume')}
               />
             </div>
-            {error ? <div style={{ color: 'oklch(65% 0.22 25)', fontSize: 13 }}>{error}</div> : null}
+            {error ? <div style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</div> : null}
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <ButtonPrimary onClick={() => void save()}>{saving ? 'salvando...' : saved ? 'salvo' : 'salvar bio'}</ButtonPrimary>
             </div>
@@ -321,7 +321,7 @@ export function AboutSection({
       <PanelCard style={{ marginTop: 24 }}>
         <SectionTitle
           num="06B /"
-          title="Estatisticas"
+          title="Estatísticas"
           action={<ButtonOutline onClick={resetStatForm}>nova estatistica</ButtonOutline>}
         />
 
@@ -346,7 +346,7 @@ export function AboutSection({
                     </ButtonOutline>
                     <ButtonOutline small onClick={() => void moveStat(stat.id, -1)}>{index === 0 ? 'topo' : 'subir'}</ButtonOutline>
                     <ButtonOutline small onClick={() => void moveStat(stat.id, 1)}>{index === stats.length - 1 ? 'base' : 'descer'}</ButtonOutline>
-                    <IconButton icon="trash" label="Remover estatistica" color="oklch(65% 0.22 25)" onClick={() => void removeStat(stat.id)} />
+                    <IconButton icon="trash" label="Remover estatistica" color="var(--danger)" onClick={() => void removeStat(stat.id)} />
                   </div>
                 </div>
               </div>

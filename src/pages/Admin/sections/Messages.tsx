@@ -59,7 +59,7 @@ export function MessagesSection({
     <div>
       <SectionTitle num="04 /" title="Mensagens" />
 
-      {error ? <div style={{ color: 'oklch(65% 0.22 25)', fontSize: 13, marginBottom: 16 }}>{error}</div> : null}
+      {error ? <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 16 }}>{error}</div> : null}
       <div className="admin-grid-2">
         <PanelCard>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -69,7 +69,7 @@ export function MessagesSection({
                 type="button"
                 onClick={() => openMessage(message.id)}
                 style={{
-                  border: `1px solid ${selectedId === message.id ? 'oklch(72% 0.25 160 / 0.28)' : 'var(--border)'}`,
+                  border: `1px solid ${selectedId === message.id ? 'rgba(107, 91, 176, 0.28)' : 'var(--border)'}`,
                   background: selectedId === message.id ? 'var(--green-glow)' : 'transparent',
                   color: 'var(--text)',
                   padding: 16,
