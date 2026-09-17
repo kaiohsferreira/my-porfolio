@@ -49,11 +49,11 @@
 }
 
 /* ─── PALETA SUAVE ─── 
-   Vale para a conversa pública (chat-mode) e para o painel admin (admin-mode). As duas
+   Vale para o portfólio público (site-mode) e para o painel admin (admin-mode). As duas
    classes vão no body enquanto a respectiva tela está montada: redefinem as mesmas
    variáveis que todo o site já consome, então componentes reaproveitados e modais abertos
    por portal, fora da árvore, mudam de cor sozinhos. */
-body.chat-mode,
+body.site-mode,
 body.admin-mode {
   --bg: #f6f4f9;
   --bg2: #efecf5;
@@ -82,7 +82,7 @@ body.admin-mode {
 }
 
 /* A textura de ruído do visual antigo não combina com a superfície lisa. */
-body.chat-mode::before,
+body.site-mode::before,
 body.admin-mode::before { display: none; }
 
 /* ─── SKILLS MARQUEE ─── */

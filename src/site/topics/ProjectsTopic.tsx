@@ -51,17 +51,17 @@ export function ProjectsTopic() {
 
               <div className="topic-project-actions">
                 {project.canPreview ? (
-                  <button type="button" className="chat-btn chat-btn-primary" onClick={() => setPreview(project)}>
+                  <button type="button" className="site-btn site-btn-primary" onClick={() => setPreview(project)}>
                     {t('Abrir prévia', 'Open preview')}
                   </button>
                 ) : null}
                 {project.repositoryUrl ? (
-                  <a className="chat-btn" href={project.repositoryUrl} target="_blank" rel="noopener noreferrer">
+                  <a className="site-btn" href={project.repositoryUrl} target="_blank" rel="noopener noreferrer">
                     {t('Repositório', 'Repository')} ↗
                   </a>
                 ) : null}
                 {project.liveUrl ? (
-                  <a className="chat-btn" href={project.liveUrl} target="_blank" rel="noopener noreferrer">
+                  <a className="site-btn" href={project.liveUrl} target="_blank" rel="noopener noreferrer">
                     {t('Ver online', 'Live site')} ↗
                   </a>
                 ) : null}

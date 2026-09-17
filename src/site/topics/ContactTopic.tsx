@@ -93,7 +93,7 @@ export function ContactTopic() {
         ) : null}
 
         <div className="topic-form-full topic-form-actions">
-          <button type="submit" className="chat-btn chat-btn-primary" disabled={sending}>
+          <button type="submit" className="site-btn site-btn-primary" disabled={sending}>
             {sending ? t('Enviando…', 'Sending…') : t('Enviar mensagem', 'Send message')}
           </button>
         </div>
