@@ -19,6 +19,7 @@ import {
   ToggleField,
 } from '../ui/controls'
 import { IconButton } from '../ui/feedback'
+import { PhotoCropModal } from '../ui/PhotoCropModal'
 
 export function AboutSection({
   about,
@@ -55,6 +56,7 @@ export function AboutSection({
   const [error, setError] = useState('')
   const [assetBusy, setAssetBusy] = useState<'image' | 'resume' | null>(null)
   const [assetNames, setAssetNames] = useState({ image: '', resume: '' })
+  const [cropFile, setCropFile] = useState<File | null>(null)
   const [statsBusy, setStatsBusy] = useState(false)
   const [editingStatId, setEditingStatId] = useState<number | null>(null)
   const [statForm, setStatForm] = useState<StatItem>({
@@ -105,8 +107,15 @@ export function AboutSection({
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'resume') {
     const file = event.target.files?.[0]
+    event.target.value = ''
     if (!file) return
 
+    // A foto passa primeiro pelo recorte; o envio acontece ao confirmar a área.
+    if (type === 'image') setCropFile(file)
+    else await uploadAsset(file, 'resume')
+  }
+
+  async function uploadAsset(file: File, type: 'image' | 'resume') {
     try {
       setAssetBusy(type)
       setAssetNames((current) => ({ ...current, [type]: file.name }))
@@ -118,7 +127,6 @@ export function AboutSection({
       setAssetNames((current) => ({ ...current, [type]: '' }))
     } finally {
       setAssetBusy(null)
-      event.target.value = ''
     }
   }
 
@@ -223,6 +231,17 @@ export function AboutSection({
   return (
     <div>
       <SectionTitle num="06 /" title="Perfil" />
+
+      {cropFile ? (
+        <PhotoCropModal
+          file={cropFile}
+          onCancel={() => setCropFile(null)}
+          onConfirm={(cropped) => {
+            setCropFile(null)
+            void uploadAsset(cropped, 'image')
+          }}
+        />
+      ) : null}
 
       <div className="admin-grid-2">
         <PanelCard accent="linear-gradient(to right, var(--green), var(--cyan))">
