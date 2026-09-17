@@ -540,3 +540,129 @@ html.depth-snap { scroll-snap-type: y proximity; }
   .pc-item { transition: none; }
   .topic-exp::before { animation: none; }
 }
+
+/* ─── PRÉVIA DE PROJETO: uma janela de navegador ─── */
+.pv-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9995;
+  display: grid;
+  place-items: center;
+  padding: clamp(10px, 3vw, 36px);
+  background: rgba(39, 35, 58, 0.42);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: pv-fade 0.25s ease both;
+}
+.pv-window {
+  display: flex;
+  flex-direction: column;
+  width: min(1280px, 100%);
+  height: 100%;
+  border-radius: 22px;
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: 0 40px 100px rgba(39, 35, 58, 0.35);
+  animation: pv-rise 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes pv-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pv-rise { from { opacity: 0; transform: translateY(18px) scale(0.97); } to { opacity: 1; transform: none; } }
+
+.pv-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px 12px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+.pv-lights { display: flex; gap: 7px; flex-shrink: 0; }
+.pv-lights i { width: 11px; height: 11px; border-radius: 50%; background: #d9d2ee; }
+.pv-lights i:first-child { background: #b9aee0; }
+.pv-title { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; }
+.pv-title strong {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pv-host {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--bg3);
+  font-size: 12.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Cadeado desenhado em CSS, sem depender de fonte de ícones. */
+.pv-lock { position: relative; width: 8px; height: 6px; border-radius: 1.5px; background: var(--text-dim); margin-top: 3px; flex-shrink: 0; }
+.pv-lock::before { content: ''; position: absolute; left: 1.5px; bottom: 5px; width: 5px; height: 5px; border: 1.5px solid var(--text-dim); border-bottom: 0; border-radius: 4px 4px 0 0; }
+.pv-open { flex-shrink: 0; }
+.pv-close {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--border-bright);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.pv-close:hover { background: var(--green); border-color: var(--green); color: #fff; }
+.pv-close:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+
+.pv-body { position: relative; flex: 1; min-height: 0; background: var(--bg3); }
+.pv-body iframe { display: block; width: 100%; height: 100%; border: 0; }
+.pv-state {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 14px;
+  padding: 24px;
+  text-align: center;
+  background: var(--bg3);
+}
+.pv-state p { margin: 0; font-size: 15px; color: var(--text-muted); }
+.pv-spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid var(--green-glow);
+  border-top-color: var(--green);
+  animation: pv-spin 0.8s linear infinite;
+}
+@keyframes pv-spin { to { transform: rotate(360deg); } }
+
+.pv-note {
+  margin: 0;
+  padding: 9px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--surface2);
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+
+@media (max-width: 640px) {
+  .pv-backdrop { padding: 0; }
+  .pv-window { border-radius: 0; }
+  .pv-lights, .pv-host, .pv-open-label { display: none; }
+  .pv-bar { gap: 10px; padding: 10px 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pv-backdrop, .pv-window { animation: none; }
+  .pv-spinner { animation-duration: 2.4s; }
+}
