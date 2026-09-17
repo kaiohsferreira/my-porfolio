@@ -361,6 +361,16 @@ html.depth-snap { scroll-snap-type: y proximity; }
   box-shadow: none;
   border-radius: 0;
 }
+/* Fundo opaco só da abertura: esconde os cartões que esperam atrás e some junto com ela ao rolar. */
+.depth-card.is-hero::before {
+  content: '';
+  position: absolute;
+  inset: -100vh -100vw;
+  z-index: -1;
+  background:
+    radial-gradient(1100px 700px at 50% 50%, rgba(255, 255, 255, 0.9), transparent 70%),
+    var(--bg);
+}
 .depth-hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: clamp(24px, 4vw, 56px); }
 .depth-hero h1 {
   margin: 10px 0 14px;
@@ -504,6 +514,7 @@ html.depth-snap { scroll-snap-type: y proximity; }
   max-height: none;
   overflow: visible;
 }
+.depth.is-flat .depth-card.is-hero::before { content: none; }
 .depth.is-flat .depth-dust,
 .depth.is-flat .depth-track,
 .depth.is-flat .depth-rail { display: none; }
