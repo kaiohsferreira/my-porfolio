@@ -6,6 +6,7 @@ import { SkillsTopic } from './topics/SkillsTopic'
 import { ExperienceTopic } from './topics/ExperienceTopic'
 import { ProjectsTopic } from './topics/ProjectsTopic'
 import { ContactTopic } from './topics/ContactTopic'
+import { HeroBlob } from './parts/HeroBlob'
 import './site.css'
 
 /** Distância entre dois cartões no eixo Z, em px. */
@@ -35,6 +36,7 @@ export function DepthPortfolio() {
   const [active, setActive] = useState(0)
   const [reached, setReached] = useState<ReadonlySet<number>>(() => new Set(flat ? [0, 1, 2, 3, 4, 5] : [0]))
   const worldRef = useRef<HTMLDivElement>(null)
+  const dustRef = useRef<HTMLDivElement>(null)
   const cardsRef = useRef<Array<HTMLElement | null>>([])
   const anchorsRef = useRef<Array<HTMLSpanElement | null>>([])
   const activeRef = useRef(0)
@@ -52,6 +54,9 @@ export function DepthPortfolio() {
   const since = profile.sinceYear ? t(`construindo sistemas desde ${profile.sinceYear}`, `building systems since ${profile.sinceYear}`) : ''
   // O lugar vem do painel como texto livre; sem preposição para não errar "em/no/na".
   const where = [profile.location ? `📍 ${profile.location}` : '', since].filter(Boolean).join(' · ')
+  // O nome quebra em duas linhas na abertura: primeiro nome em cima, o resto embaixo.
+  const [firstName, ...others] = profile.fullName.trim().split(/\s+/)
+  const restName = others.join(' ')
 
   function go(index: number) {
     if (flat) {
@@ -67,8 +72,17 @@ export function DepthPortfolio() {
       label: t('Início', 'Home'),
       body: (
         <div className="depth-hero">
+          <div>
           <span className="depth-eyebrow">{headline}</span>
-          <h1>{profile.fullName}</h1>
+          <h1>
+            {firstName}
+            {restName ? (
+              <>
+                <br />
+                {restName}
+              </>
+            ) : null}
+          </h1>
           {where ? <p>{where}</p> : null}
           <div className="depth-actions">
             <button type="button" className="site-btn site-btn-primary" onClick={() => go(4)}>
@@ -79,6 +93,8 @@ export function DepthPortfolio() {
             </button>
           </div>
           {flat ? null : <span className="depth-hint">{t('Role para entrar ↓', 'Scroll to dive in ↓')}</span>}
+          </div>
+          <HeroBlob />
         </div>
       ),
     },
@@ -126,6 +142,7 @@ export function DepthPortfolio() {
   useEffect(() => {
     if (flat) return
     const world = worldRef.current
+    const dust = dustRef.current
     if (!world) return
 
     let frame = 0
@@ -149,10 +166,17 @@ export function DepthPortfolio() {
       const progress = Math.min(count - 1, Math.max(0, window.scrollY / step))
       camX += (targetX - camX) * 0.06
       camY += (targetY - camY) * 0.06
-      world.style.transform = `translate3d(${-camX}px, ${-camY}px, ${progress * GAP_Z}px)`
+      // A câmera não move o contêiner do mundo: movê-lo no Z joga o plano dele para trás do
+      // observador nas paradas finais, e o Chrome descarta do teste de clique tudo que está
+      // dentro de um plano atrás da câmera — os botões paravam de responder. Cada cartão recebe
+      // a própria profundidade; só a poeira, que não é clicável, anda em bloco.
+      world.style.setProperty('--cam-x', `${camX}px`)
+      world.style.setProperty('--cam-y', `${camY}px`)
+      if (dust) dust.style.transform = `translate3d(${-camX}px, ${-camY}px, ${progress * GAP_Z}px)`
 
       cardsRef.current.forEach((card, i) => {
         if (!card) return
+        card.style.setProperty('--z', `${(progress - i) * GAP_Z}px`)
         // Distância em cartões: positiva à frente; negativa é o cartão passando pela câmera.
         const d = i - progress
         const opacity = d < -0.35 ? 0 : d < 0 ? 1 + d / 0.35 : Math.max(0, 1 - d / 2.2)
@@ -236,15 +260,17 @@ export function DepthPortfolio() {
       </div>
 
       <main className="depth-stage">
-        <div ref={worldRef} className="depth-world">
+        <div ref={dustRef} className="depth-dust" aria-hidden="true">
           {DUST.map((dot, i) => (
             <span
               key={i}
               className="depth-dot"
-              aria-hidden="true"
               style={{ width: dot.size, height: dot.size, transform: `translate3d(${dot.x}vw, ${dot.y}vh, ${dot.z}px)` }}
             />
           ))}
+        </div>
+
+        <div ref={worldRef} className="depth-world">
 
           {stations.map((station, i) => {
             // A abertura fica no centro; as seções alternam lados, viradas para o eixo da câmera.
@@ -256,14 +282,14 @@ export function DepthPortfolio() {
                 ref={(el) => {
                   cardsRef.current[i] = el
                 }}
-                className={i === active || flat ? 'depth-card is-active' : 'depth-card'}
+                className={['depth-card', i === 0 ? 'is-hero' : '', i === active || flat ? 'is-active' : ''].filter(Boolean).join(' ')}
                 aria-label={station.label}
                 // Tab até um cartão distante leva a câmera até ele.
                 onFocus={() => {
                   if (i !== activeRef.current) go(i)
                 }}
                 style={{
-                  transform: `translate(-50%, -50%) translate3d(calc(${side} * var(--sway)), 0, ${-i * GAP_Z}px) rotateY(calc(${-side} * var(--tilt)))`,
+                  transform: `translate(-50%, -50%) translate3d(calc(${side} * var(--sway) - var(--cam-x, 0px)), calc(-1 * var(--cam-y, 0px)), var(--z, ${-i * GAP_Z}px)) rotateY(calc(${-side} * var(--tilt)))`,
                 }}
               >
                 {station.title ? (

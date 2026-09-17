@@ -120,30 +120,93 @@
 .topic-exp-company { font-size: 13.5px; color: var(--cyan); font-weight: 500; }
 .topic-exp-item p { margin: 8px 0 0; font-size: 14px; line-height: 1.7; color: var(--text-muted); }
 
-/* ── Projetos ── */
-.topic-projects { display: flex; flex-direction: column; gap: 16px; }
-.topic-project {
-  display: grid;
-  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
-  gap: 18px;
-  align-items: center;
-  animation: site-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-.topic-project + .topic-project { padding-top: 16px; border-top: 1px solid var(--border); }
-.topic-project-cover {
+/* ── Projetos: carrossel 3D ── */
+.topic-projects { display: block; }
+.topic-project-initial { font-family: var(--font-serif); font-size: 40px; color: var(--text-dim); }
+.topic-project-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+
+.pc-stage {
   position: relative;
-  aspect-ratio: 16 / 10;
-  border-radius: 14px;
-  overflow: hidden;
-  background: var(--bg3);
+  height: clamp(200px, 30vw, 290px);
+  perspective: 1100px;
+  touch-action: pan-y;
+  outline: none;
+  user-select: none;
+}
+.pc-stage:focus-visible { box-shadow: 0 0 0 3px var(--green-glow); border-radius: 18px; }
+/* O plano do trilho cruza as capas viradas e roubaria o clique da metade que gira para trás. */
+.pc-track { position: absolute; inset: 0; transform-style: preserve-3d; pointer-events: none; }
+.pc-item {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(62%, 440px);
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s;
+}
+.pc-item.is-front { cursor: default; }
+.pc-cover {
+  position: relative;
   display: grid;
   place-items: center;
+  aspect-ratio: 16 / 10;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--bg3);
+  box-shadow: 0 18px 40px rgba(40, 34, 64, 0.18);
 }
-.topic-project-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.topic-project-initial { font-family: var(--font-serif); font-size: 40px; color: var(--text-dim); }
-.topic-project-body h4 { margin: 0 0 6px; font-family: var(--font-serif); font-size: 19px; font-weight: 500; }
-.topic-project-body p { margin: 0; font-size: 14px; line-height: 1.65; color: var(--text-muted); }
-.topic-project-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.pc-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pc-name {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 26px 14px 10px;
+  border-radius: 0 0 16px 16px;
+  text-align: left;
+  font-family: var(--font-serif);
+  font-size: 16px;
+  color: #fff;
+  background: linear-gradient(to top, rgba(39, 35, 58, 0.78), transparent);
+}
+.pc-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 20;
+  width: 42px;
+  height: 42px;
+  margin-top: -21px;
+  border-radius: 50%;
+  border: 1px solid var(--border-bright);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 18px;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(40, 34, 64, 0.1);
+  transition: border-color 0.2s, color 0.2s;
+}
+.pc-arrow:hover { border-color: var(--green); color: var(--green); }
+.pc-prev { left: 0; }
+.pc-next { right: 0; }
+.pc-dots { display: flex; justify-content: center; gap: 8px; margin-top: 14px; }
+.pc-dots button {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--border-bright);
+  cursor: pointer;
+  transition: width 0.3s, background 0.3s;
+}
+.pc-dots button.is-on { width: 22px; background: var(--green); }
+.pc-details { margin-top: 18px; animation: site-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.pc-details h3 { margin: 0 0 6px; font-family: var(--font-serif); font-size: 22px; font-weight: 500; }
+.pc-details p { margin: 0; font-size: 14.5px; line-height: 1.65; color: var(--text-muted); }
 
 .topic-tags { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; padding: 0; }
 .topic-tags li {
@@ -225,11 +288,20 @@ html.depth-snap { scroll-snap-type: y proximity; }
     radial-gradient(900px 600px at 85% 90%, rgba(90, 147, 173, 0.08), transparent 70%),
     var(--bg);
 }
+.depth-dust {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  pointer-events: none;
+}
 .depth-world {
   position: absolute;
   inset: 0;
   transform-style: preserve-3d;
   will-change: transform;
+  /* O plano do próprio mundo cruza os cartões virados e roubaria o clique da metade que gira
+     para dentro da tela; só o cartão da frente reativa (.depth-card.is-active). */
+  pointer-events: none;
 }
 
 .depth-card {
@@ -279,20 +351,46 @@ html.depth-snap { scroll-snap-type: y proximity; }
   opacity: 0.18;
 }
 
-/* ── Abertura ── */
-.depth-hero { text-align: center; padding: 20px 8px; }
+/* ── Abertura: texto à esquerda, forma viva à direita, sem cartão ── */
+.depth-card.is-hero {
+  width: min(1120px, 92vw);
+  max-height: none;
+  overflow: visible;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+}
+.depth-hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: clamp(24px, 4vw, 56px); }
 .depth-hero h1 {
-  margin: 10px 0 12px;
+  margin: 10px 0 14px;
   font-family: var(--font-serif);
-  font-size: clamp(46px, 8vw, 92px);
+  font-size: clamp(50px, 7vw, 96px);
   font-weight: 500;
   letter-spacing: -0.03em;
-  line-height: 1;
+  line-height: 0.98;
 }
-.depth-hero p { margin: 0 auto; max-width: 52ch; font-size: 17px; line-height: 1.6; color: var(--text-muted); }
-.depth-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 28px; }
-.depth-hint { display: block; margin-top: 30px; font-size: 13px; color: var(--text-dim); animation: depth-bob 2.4s ease-in-out infinite; }
+.depth-hero p { margin: 0; max-width: 46ch; font-size: 17px; line-height: 1.6; color: var(--text-muted); }
+.depth-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 26px; }
+.depth-hint { display: inline-block; margin-top: 28px; font-size: 13px; color: var(--text-dim); animation: depth-bob 2.4s ease-in-out infinite; }
 @keyframes depth-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(5px); } }
+
+.depth-blob { position: relative; width: min(460px, 40vw); aspect-ratio: 1; }
+.depth-blob canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
+/* Reserva enquanto o Three.js carrega, e fica de vez se não houver WebGL. */
+.depth-blob::before {
+  content: '';
+  position: absolute;
+  inset: 16%;
+  border-radius: 46% 54% 58% 42% / 44% 46% 54% 56%;
+  background: radial-gradient(circle at 34% 30%, #c9bff0, #8676c8 45%, #5b6fb0 100%);
+  animation: depth-morph 9s ease-in-out infinite;
+}
+.depth-blob.has-canvas::before { display: none; }
+@keyframes depth-morph {
+  0%, 100% { border-radius: 46% 54% 58% 42% / 44% 46% 54% 56%; }
+  50% { border-radius: 58% 42% 44% 56% / 56% 52% 48% 44%; }
+}
 
 /* ── Sobre mim com foto ── */
 .topic-about { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 32px; align-items: start; }
@@ -406,7 +504,7 @@ html.depth-snap { scroll-snap-type: y proximity; }
   max-height: none;
   overflow: visible;
 }
-.depth.is-flat .depth-dot,
+.depth.is-flat .depth-dust,
 .depth.is-flat .depth-track,
 .depth.is-flat .depth-rail { display: none; }
 
@@ -414,6 +512,12 @@ html.depth-snap { scroll-snap-type: y proximity; }
   .depth { --sway: 0px; --tilt: 0deg; }
   .depth-card { width: 92vw; max-height: 74vh; padding: 26px 22px; border-radius: 22px; }
   .depth-card .topic-skills { margin: 0 -22px; }
+  .depth-hero { grid-template-columns: 1fr; text-align: center; gap: 8px; }
+  .depth-hero p { margin: 0 auto; }
+  .depth-actions { justify-content: center; }
+  .depth-blob { width: min(250px, 62vw); margin: 0 auto; order: -1; }
+  .pc-item { width: 74%; }
+  .pc-arrow { display: none; }
   .topic-about { grid-template-columns: 1fr; gap: 20px; }
   .topic-about-photo { width: 140px; }
   .depth-head-actions .site-btn { display: none; }
@@ -424,14 +528,15 @@ html.depth-snap { scroll-snap-type: y proximity; }
 
 @media (max-width: 640px) {
   .topic-skills { margin: -4px -16px; }
-  .topic-project { grid-template-columns: 1fr; gap: 12px; }
   .topic-form { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .topic > *,
   .topic-exp-item,
-  .topic-project,
-  .depth-hint { animation: none; }
+  .depth-hint,
+  .depth-blob::before,
+  .pc-details { animation: none; }
+  .pc-item { transition: none; }
   .topic-exp::before { animation: none; }
 }
