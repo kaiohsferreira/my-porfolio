@@ -365,7 +365,7 @@ html.depth-snap { scroll-snap-type: y proximity; }
 .depth-card.is-hero::before {
   content: '';
   position: absolute;
-  inset: -100vh -100vw;
+  inset: -60vh -40vw;
   z-index: -1;
   background:
     radial-gradient(1100px 700px at 50% 50%, rgba(255, 255, 255, 0.9), transparent 70%),

@@ -88,7 +88,8 @@ export function ProjectsTopic() {
                   transform: `translate(-50%, -50%) translateX(${o * 64}%) translateZ(${far * -240}px) rotateY(${o * -38}deg)`,
                   opacity: far > 2 ? 0 : 1 - far * 0.28,
                   zIndex: 10 - far,
-                  visibility: far > 2 ? 'hidden' : 'visible',
+                  // 'inherit', não 'visible': com o cartão escondido, a capa visível continuava clicável por cima do Contato.
+                  visibility: far > 2 ? 'hidden' : 'inherit',
                 }}
               >
                 <span className="pc-cover">

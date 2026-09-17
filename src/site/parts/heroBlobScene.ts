@@ -21,7 +21,7 @@ import {
  */
 export function mountBlob(host: HTMLElement) {
   const renderer = new WebGLRenderer({ antialias: true, alpha: true })
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5))
   renderer.setClearColor(0x000000, 0)
   host.appendChild(renderer.domElement)
   host.classList.add('has-canvas')
@@ -38,7 +38,7 @@ export function mountBlob(host: HTMLElement) {
   rim.position.set(3, -2, 3)
   scene.add(rim)
 
-  const geometry = new SphereGeometry(1.15, 96, 96)
+  const geometry = new SphereGeometry(1.15, 64, 64)
   const position = geometry.attributes.position
   const base = Float32Array.from(position.array as ArrayLike<number>)
   const material = new MeshStandardMaterial({ color: 0x8676c8, roughness: 0.28, metalness: 0.12 })
@@ -97,7 +97,8 @@ export function mountBlob(host: HTMLElement) {
   const loop = () => {
     frame = requestAnimationFrame(loop)
     // Longe da abertura o cartão some; não vale gastar a placa de vídeo com o que ninguém vê.
-    if (document.hidden || card?.style.visibility === 'hidden') return
+    // Opacidade baixa já é a forma indo embora: parar ali poupa a CPU justo na viagem até a próxima seção.
+    if (document.hidden || card?.style.visibility === 'hidden' || Number(card?.style.opacity || 1) < 0.5) return
     t += 0.012
     draw()
   }

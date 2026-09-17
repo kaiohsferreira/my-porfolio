@@ -101,9 +101,21 @@ export function SkillsCarousel() {
     let dragStartX = 0
     let dragStartScroll = 0
     let started = false
+    // Largura guardada: ler scrollWidth logo depois de escrever scrollLeft forçava um layout
+    // completo a cada quadro.
+    let width = baseGroup.scrollWidth
+    let exact = 0
+    const sizeObserver = new ResizeObserver(() => {
+      width = baseGroup.scrollWidth
+    })
+    sizeObserver.observe(baseGroup)
+    // No portfólio em profundidade, o carrossel só anda enquanto o cartão dele está na frente.
+    const card = scroller.closest('.depth-card')
 
     function baseWidth() {
-      return baseGroup!.scrollWidth
+      // Antes do primeiro layout a largura ainda é zero; lê de novo até ter um valor.
+      if (!width) width = baseGroup!.scrollWidth
+      return width
     }
 
     /**
@@ -133,22 +145,24 @@ export function SkillsCarousel() {
       if (!previous) previous = now
       const elapsed = now - previous
       previous = now
+      frame = requestAnimationFrame(step)
+      if (document.hidden || (card && !card.classList.contains('is-active'))) return
 
-      const width = baseWidth()
-
-      if (width > 0) {
+      if (baseWidth() > 0) {
         if (!started) {
           // Começa um grupo adiante, deixando material à esquerda para arrastar de volta.
           scroller!.scrollLeft = width
           started = true
         } else if (!hovering && !dragging && !reduced) {
-          scroller!.scrollLeft += (width / LOOP_DURATION) * elapsed
+          // Posição acumulada em float: com passo abaixo de 1px por quadro, o navegador que
+          // arredonda scrollLeft engolia o avanço e o carrossel parava.
+          if (Math.abs(scroller!.scrollLeft - exact) > 1) exact = scroller!.scrollLeft
+          exact += (width / LOOP_DURATION) * Math.min(elapsed, 100)
+          scroller!.scrollLeft = exact
         }
 
         wrap()
       }
-
-      frame = requestAnimationFrame(step)
     }
 
     frame = requestAnimationFrame(step)
@@ -223,6 +237,7 @@ export function SkillsCarousel() {
 
     return () => {
       cancelAnimationFrame(frame)
+      sizeObserver.disconnect()
       scroller.removeEventListener('mouseenter', onEnter)
       scroller.removeEventListener('mouseleave', onLeave)
       scroller.removeEventListener('pointerdown', onPointerDown)

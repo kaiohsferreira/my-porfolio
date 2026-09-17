@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { memo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useLanguage } from '@/context/LanguageContext'
 import { usePortfolioContent } from '@/context/PortfolioContentContext'
 import { AboutTopic } from './topics/AboutTopic'
@@ -8,6 +8,15 @@ import { ProjectsTopic } from './topics/ProjectsTopic'
 import { ContactTopic } from './topics/ContactTopic'
 import { HeroBlob } from './parts/HeroBlob'
 import './site.css'
+
+// A troca de seção re-renderiza o portfólio; sem memo, o carrossel de skills e os demais tópicos
+// eram refeitos inteiros bem no meio da viagem, e a animação engasgava.
+const About = memo(AboutTopic)
+const Skills = memo(SkillsTopic)
+const Experience = memo(ExperienceTopic)
+const Projects = memo(ProjectsTopic)
+const Contact = memo(ContactTopic)
+const Blob = memo(HeroBlob)
 
 /** Distância entre dois cartões no eixo Z, em px. */
 const GAP_Z = 1500
@@ -94,7 +103,7 @@ export function DepthPortfolio() {
           </div>
           {flat ? null : <span className="depth-hint">{t('Role para entrar ↓', 'Scroll to dive in ↓')}</span>}
           </div>
-          <HeroBlob />
+          <Blob />
         </div>
       ),
     },
@@ -102,20 +111,20 @@ export function DepthPortfolio() {
       label: t('Sobre mim', 'About me'),
       eyebrow: t('Quem sou', 'Who I am'),
       title: t('Sobre mim', 'About me'),
-      body: <AboutTopic reached={reached.has(1)} />,
+      body: <About reached={reached.has(1)} />,
     },
     {
       label: 'Skills',
       eyebrow: t('Com o que trabalho', 'What I work with'),
       title: 'Skills',
-      body: <SkillsTopic />,
+      body: <Skills />,
     },
     {
       label: t('Experiência', 'Experience'),
       eyebrow: t('Por onde passei', "Where I've been"),
       title: t('Experiência', 'Experience'),
       body: experiences.length ? (
-        <ExperienceTopic />
+        <Experience />
       ) : (
         <p className="depth-empty">{t('Minha trajetória ainda está sendo escrita por aqui.', 'My journey is still being written here.')}</p>
       ),
@@ -125,7 +134,7 @@ export function DepthPortfolio() {
       eyebrow: t('O que construí', "What I've built"),
       title: t('Projetos', 'Projects'),
       body: projects.length ? (
-        <ProjectsTopic />
+        <Projects />
       ) : (
         <p className="depth-empty">{t('Os projetos estão chegando em breve.', 'Projects are coming soon.')}</p>
       ),
@@ -134,7 +143,7 @@ export function DepthPortfolio() {
       label: t('Contato', 'Contact'),
       eyebrow: t('Contato', 'Contact'),
       title: t('Vamos conversar?', "Let's talk"),
-      body: <ContactTopic />,
+      body: <Contact />,
     },
   ]
   const count = stations.length
@@ -159,29 +168,51 @@ export function DepthPortfolio() {
     }
     window.addEventListener('pointermove', onPointer)
 
+    let step = anchorsRef.current[1]?.offsetTop || window.innerHeight * STATION
+    const onResize = () => {
+      step = anchorsRef.current[1]?.offsetTop || window.innerHeight * STATION
+    }
+    window.addEventListener('resize', onResize)
+
+    let progress = Math.min(count - 1, Math.max(0, window.scrollY / step))
+    let first = true
+
     const tick = () => {
       frame = requestAnimationFrame(tick)
 
-      const step = anchorsRef.current[1]?.offsetTop || window.innerHeight * STATION
-      const progress = Math.min(count - 1, Math.max(0, window.scrollY / step))
-      camX += (targetX - camX) * 0.06
-      camY += (targetY - camY) * 0.06
+      const target = Math.min(count - 1, Math.max(0, window.scrollY / step))
+      // A câmera persegue a rolagem em vez de colar nela: a roda do mouse anda aos saltos, e
+      // sem essa suavização a cena inteira pulava junto.
+      const dp = target - progress
+      const dx = targetX - camX
+      const dy = targetY - camY
+      // Parado: nada muda, nada é escrito — o navegador não recalcula estilo nenhum.
+      if (!first && Math.abs(dp) < 0.0004 && Math.abs(dx) < 0.05 && Math.abs(dy) < 0.05) return
+      first = false
+      progress = Math.abs(dp) < 0.0004 ? target : progress + dp * 0.14
+      camX += dx * 0.08
+      camY += dy * 0.08
+
       // A câmera não move o contêiner do mundo: movê-lo no Z joga o plano dele para trás do
       // observador nas paradas finais, e o Chrome descarta do teste de clique tudo que está
       // dentro de um plano atrás da câmera — os botões paravam de responder. Cada cartão recebe
       // a própria profundidade; só a poeira, que não é clicável, anda em bloco.
-      world.style.setProperty('--cam-x', `${camX}px`)
-      world.style.setProperty('--cam-y', `${camY}px`)
+      // O transform vai inteiro no próprio cartão: variáveis CSS no mundo obrigariam o navegador
+      // a recalcular o estilo de todos os descendentes (o carrossel de skills inteiro) a cada quadro.
       if (dust) dust.style.transform = `translate3d(${-camX}px, ${-camY}px, ${progress * GAP_Z}px)`
 
       cardsRef.current.forEach((card, i) => {
         if (!card) return
-        card.style.setProperty('--z', `${(progress - i) * GAP_Z}px`)
         // Distância em cartões: positiva à frente; negativa é o cartão passando pela câmera.
         const d = i - progress
         const opacity = d < -0.35 ? 0 : d < 0 ? 1 + d / 0.35 : Math.max(0, 1 - d / 2.2)
+        const hidden = opacity < 0.02
+        card.style.visibility = hidden ? 'hidden' : 'visible'
         card.style.opacity = opacity.toFixed(3)
-        card.style.visibility = opacity < 0.02 ? 'hidden' : 'visible'
+        // Cartão invisível não precisa de transform novo: economiza composição dos distantes.
+        if (hidden) return
+        const side = i === 0 ? 0 : i % 2 ? -1 : 1
+        card.style.transform = `translate(-50%, -50%) translate3d(calc(${side} * var(--sway) - ${camX.toFixed(2)}px), ${(-camY).toFixed(2)}px, ${((progress - i) * GAP_Z).toFixed(1)}px) rotateY(calc(${-side} * var(--tilt)))`
       })
 
       const nearest = Math.round(progress)
@@ -196,6 +227,7 @@ export function DepthPortfolio() {
     return () => {
       cancelAnimationFrame(frame)
       window.removeEventListener('pointermove', onPointer)
+      window.removeEventListener('resize', onResize)
     }
   }, [flat, count])
 
